@@ -1,0 +1,213 @@
+{
+  "users": [
+    {
+      "id": "usr_1788056320943_902",
+      "name": "???? ????",
+      "phone": "01012345678",
+      "email": "ahmed@gasco.eg",
+      "otp": null,
+      "otpExpiresAt": null,
+      "isVerified": true,
+      "companyCode": "",
+      "createdAt": "2026-08-30T02:18:40.943Z",
+      "updatedAt": "2026-08-30T02:18:41.131Z"
+    },
+    {
+      "id": "usr_1788064929030_966",
+      "name": "عمار فكري",
+      "phone": "01114687759",
+      "email": "marfkry1@gmail.com",
+      "otp": null,
+      "otpExpiresAt": null,
+      "isVerified": true,
+      "companyCode": "",
+      "createdAt": "2026-08-30T04:42:09.030Z",
+      "updatedAt": "2026-08-30T04:43:09.660Z"
+    }
+  ],
+  "orders": [
+    {
+      "id": "PRV-10483",
+      "orderNumber": 10483,
+      "userId": "usr_1788064929030_966",
+      "name": "عمار فكري",
+      "phone": "01114687759",
+      "email": "marfkry1@gmail.com",
+      "companyCode": "GASCO15",
+      "companyName": "جاسكو (GASCO)",
+      "discountPct": 15,
+      "childGender": "ولد",
+      "schoolStage": "ابتدائي",
+      "budgetTier": "medium",
+      "budgetTierLabel": "⚖️ متوسطة",
+      "deliveryType": "توصيل للمنزل",
+      "address": "ه",
+      "city": "القاهرة / الجيزة",
+      "extraNotes": "",
+      "images": [
+        {
+          "path": "/uploads/images-1788065368649-705906035.jpg",
+          "filename": "images-1788065368649-705906035.jpg",
+          "originalname": "783985347_1101901582501956_1648917633344025393_n.jpg",
+          "size": 305895,
+          "note": ""
+        }
+      ],
+      "files": [],
+      "status": "new",
+      "statusLabel": "تم استلام الطلب",
+      "statusHistory": [
+        {
+          "status": "new",
+          "label": "تم استلام الطلب وجاري المراجعة",
+          "timestamp": "2026-08-30T04:49:28.654Z"
+        }
+      ],
+      "createdAt": "2026-08-30T04:49:28.654Z",
+      "updatedAt": "2026-08-30T04:49:28.654Z"
+    },
+    {
+      "id": "PRV-10482",
+      "orderNumber": 10482,
+      "userId": null,
+      "name": "أحمد محمد",
+      "phone": "01012345678",
+      "email": "ahmed@gasco.eg",
+      "companyCode": "GASCO15",
+      "companyName": "جاسكو (GASCO)",
+      "discountPct": 15,
+      "childGender": "ولد",
+      "schoolStage": "ابتدائي",
+      "budgetTier": "medium",
+      "budgetTierLabel": "⚖️ متوسطة",
+      "deliveryType": "توصيل للمنزل",
+      "address": "شارع التسعين، التجمع الخامس، عمارة 4",
+      "city": "القاهرة - التجمع والقاهرة الجديدة",
+      "extraNotes": "تجليد أزرق وأقلام فايبر كاستل",
+      "images": [],
+      "files": [],
+      "status": "new",
+      "statusLabel": "تم استلام الطلب",
+      "statusHistory": [
+        {
+          "status": "new",
+          "label": "تم استلام الطلب وجاري المراجعة",
+          "timestamp": "2026-08-30T02:19:00.216Z"
+        }
+      ],
+      "createdAt": "2026-08-30T02:19:00.216Z",
+      "updatedAt": "2026-08-30T02:19:00.216Z"
+    }
+  ],
+  "corporateCodes": [
+    {
+      "code": "GASCO",
+      "name": "جاسكو (GASCO)",
+      "discount": 15,
+      "active": true
+    },
+    {
+      "code": "GASCO15",
+      "name": "جاسكو (GASCO)",
+      "discount": 15,
+      "active": true
+    },
+    {
+      "code": "ENPPI",
+      "name": "إنبي (ENPPI)",
+      "discount": 15,
+      "active": true
+    },
+    {
+      "code": "ENPPI15",
+      "name": "إنبي (ENPPI)",
+      "discount": 15,
+      "active": true
+    },
+    {
+      "code": "PETROBEL",
+      "name": "بتروبل (PETROBEL)",
+      "discount": 15,
+      "active": true
+    },
+    {
+      "code": "PETROBEL15",
+      "name": "بتروبل (PETROBEL)",
+      "discount": 15,
+      "active": true
+    },
+    {
+      "code": "BAPETCO",
+      "name": "بدر الدين للبترول (BAPETCO)",
+      "discount": 15,
+      "active": true
+    },
+    {
+      "code": "BAPETCO15",
+      "name": "بدر الدين للبترول (BAPETCO)",
+      "discount": 15,
+      "active": true
+    },
+    {
+      "code": "GUPCO",
+      "name": "جابكو (GUPCO)",
+      "discount": 15,
+      "active": true
+    },
+    {
+      "code": "GUPCO15",
+      "name": "جابكو (GUPCO)",
+      "discount": 15,
+      "active": true
+    },
+    {
+      "code": "KHALDA",
+      "name": "خالدة للبترول (KHALDA)",
+      "discount": 15,
+      "active": true
+    },
+    {
+      "code": "KHALDA15",
+      "name": "خالدة للبترول (KHALDA)",
+      "discount": 15,
+      "active": true
+    },
+    {
+      "code": "EGPC",
+      "name": "الهيئة العامة للبترول (EGPC)",
+      "discount": 15,
+      "active": true
+    },
+    {
+      "code": "EGPC15",
+      "name": "الهيئة العامة للبترول (EGPC)",
+      "discount": 15,
+      "active": true
+    },
+    {
+      "code": "PROVIEA",
+      "name": "عرض المعرض الخاص - بروفيدا",
+      "discount": 15,
+      "active": true
+    },
+    {
+      "code": "PROVIEA15",
+      "name": "عرض المعرض الخاص - بروفيدا",
+      "discount": 15,
+      "active": true
+    },
+    {
+      "code": "PETRO",
+      "name": "قطاع البترول العام",
+      "discount": 15,
+      "active": true
+    },
+    {
+      "code": "PETRO15",
+      "name": "قطاع البترول العام",
+      "discount": 15,
+      "active": true
+    }
+  ],
+  "nextOrderNumber": 10484
+}
