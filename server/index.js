@@ -162,9 +162,46 @@ app.post('/api/auth/verify-otp', (req, res) => {
       name: updatedUser.name,
       phone: updatedUser.phone,
       email: updatedUser.email,
+      role: updatedUser.role || (updatedUser.isAdmin ? 'admin' : 'customer'),
+      isAdmin: !!updatedUser.isAdmin,
       companyCode: updatedUser.companyCode
     }
   });
+});
+
+// Admin Password / PIN Login
+app.post('/api/admin/login', (req, res) => {
+  const { username, password, pin } = req.body;
+  
+  // Default Admin Credentials
+  const validUsernames = ['admin', 'proviea', 'owner'];
+  const validPasswords = ['proviea2026', 'admin2026', '1020', '123456'];
+  const validPins = ['1020', '2026', '123456'];
+
+  const isAuth = 
+    (validUsernames.includes((username || '').toLowerCase().trim()) && validPasswords.includes(password)) ||
+    validPins.includes(pin) ||
+    validPasswords.includes(password);
+
+  if (isAuth) {
+    return res.json({
+      success: true,
+      message: 'تم تسجيل دخول الإدارة بنجاح',
+      user: {
+        id: 'admin_master',
+        name: 'مدير منصة Proviea',
+        phone: '01000000000',
+        email: 'admin@proviea.com',
+        role: 'admin',
+        isAdmin: true,
+        companyCode: 'PROVIEA15'
+      }
+    });
+  } else {
+    return res.status(401).json({
+      error: 'بيانات دخول الإدارة غير صحيحة، يرجى التأكد من كلمة المرور'
+    });
+  }
 });
 
 // Request Profile Update OTP (Sent to Email/Phone)

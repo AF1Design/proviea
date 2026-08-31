@@ -68,18 +68,20 @@ export default function Navbar({ onNavigate, currentScreen }) {
             </button>
           )}
 
-          {/* Admin link for organizers */}
-          <button
-            onClick={() => onNavigate('admin')}
-            className={`p-2 rounded-full transition-colors ${
-              currentScreen === 'admin' 
-                ? 'bg-navy text-yellow' 
-                : 'text-navy/40 hover:text-navy hover:bg-navy/10'
-            }`}
-            title="لوحة تحكم المعرض"
-          >
-            <ShieldCheck className="w-4 h-4" />
-          </button>
+          {/* Admin link - ONLY visible for Admin accounts */}
+          {(user?.isAdmin || user?.role === 'admin') && (
+            <button
+              onClick={() => onNavigate('admin')}
+              className={`p-2 rounded-full transition-colors ${
+                currentScreen === 'admin' 
+                  ? 'bg-navy text-yellow shadow' 
+                  : 'bg-yellow text-navy hover:bg-yellow-dark shadow-sm'
+              }`}
+              title="لوحة تحكم المعرض (الإدارة)"
+            >
+              <ShieldCheck className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
     </header>

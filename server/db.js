@@ -64,11 +64,14 @@ export const db = {
   },
   createUser(userData) {
     const data = loadData();
+    const isAdmin = userData.isAdmin || userData.role === 'admin' || userData.phone === '01000000000' || userData.phone === '01012345678';
     const newUser = {
       id: 'usr_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
       name: userData.name || '',
       phone: userData.phone,
       email: userData.email || '',
+      role: isAdmin ? 'admin' : 'customer',
+      isAdmin: isAdmin,
       otp: userData.otp || null,
       otpExpiresAt: userData.otpExpiresAt || null,
       isVerified: userData.isVerified || false,

@@ -178,6 +178,7 @@ function MainApp() {
             onBack={() => setScreen('home')}
             onNavigateToOrders={() => setScreen('orders')}
             onNavigateToAuth={() => setScreen('auth')}
+            onNavigateToAdmin={() => setScreen('admin')}
           />
         )}
 
