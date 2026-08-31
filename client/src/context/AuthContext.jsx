@@ -21,85 +21,50 @@ export function AuthProvider({ children }) {
     localStorage.setItem('proviea_user', JSON.stringify(userData));
   };
 
-  // Register or Login via Supabase
+  // Register via Supabase Cloud
   const register = async (name, phone, email, companyCode = '') => {
     setLoading(true);
     setError(null);
     try {
-      // 1. Try Supabase direct
-      try {
-        const data = await requestOtp({ name, phone, email, companyCode });
-        return data;
-      } catch (sbErr) {
-        console.warn('Supabase auth fallback to local API:', sbErr);
-        const res = await fetch('/api/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, phone, email, companyCode })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'فشل في إنشاء الحساب');
-        return data;
-      }
+      const data = await requestOtp({ name, phone, email, companyCode });
+      return data;
     } catch (err) {
-      setError(err.message);
-      throw err;
+      const msg = err.message || 'فشل في إرسال رمز التحقق';
+      setError(msg);
+      throw new Error(msg);
     } finally {
       setLoading(false);
     }
   };
 
+  // Login via Supabase Cloud
   const requestLoginOtp = async (phone) => {
     setLoading(true);
     setError(null);
     try {
-      // 1. Try Supabase direct
-      try {
-        const data = await requestOtp({ phone });
-        return data;
-      } catch (sbErr) {
-        console.warn('Supabase login fallback to local API:', sbErr);
-        const res = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'فشل في إرسال الرمز');
-        return data;
-      }
+      const data = await requestOtp({ phone });
+      return data;
     } catch (err) {
-      setError(err.message);
-      throw err;
+      const msg = err.message || 'فشل في إرسال رمز التحقق';
+      setError(msg);
+      throw new Error(msg);
     } finally {
       setLoading(false);
     }
   };
 
+  // Verify OTP via Supabase Cloud
   const verifyOtp = async (phone, otp) => {
     setLoading(true);
     setError(null);
     try {
-      // 1. Try Supabase direct
-      try {
-        const data = await verifyOtpSupabase({ phone, otp });
-        saveUserSession(data.user);
-        return data;
-      } catch (sbErr) {
-        console.warn('Supabase verify fallback to local API:', sbErr);
-        const res = await fetch('/api/auth/verify-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone, otp })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'رمز التحقق غير صحيح');
-        saveUserSession(data.user);
-        return data;
-      }
+      const data = await verifyOtpSupabase({ phone, otp });
+      saveUserSession(data.user);
+      return data;
     } catch (err) {
-      setError(err.message);
-      throw err;
+      const msg = err.message || 'رمز التحقق غير صحيح';
+      setError(msg);
+      throw new Error(msg);
     } finally {
       setLoading(false);
     }

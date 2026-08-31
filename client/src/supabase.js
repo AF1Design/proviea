@@ -1,24 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Load Supabase credentials securely from Environment Variables
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Public Supabase Configuration (Safe for client browsers)
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://enodiavvgwahlqtsqqoy.supabase.co';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_41rNDKT4cBCF2F6X-m5kBw_RSQiYA8k';
 
-export const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY)
-  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-  : {
-      from: () => ({ select: () => ({ error: { message: 'Supabase env variables not configured' }, data: [] }) }),
-      storage: { from: () => ({ upload: () => ({ error: { message: 'Storage not configured' } }) }) }
-    };
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ================= AUTH HELPERS =================
 
 // 1. Request OTP (Registration / Login)
 export async function requestOtp({ phone, name, email, companyCode }) {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    throw new Error('بيانات الربط مع سوبابيز غير مكتملة');
-  }
-
   const cleanPhone = phone.trim().replace(/\s+/g, '');
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
@@ -98,10 +89,6 @@ export async function requestOtp({ phone, name, email, companyCode }) {
 
 // 2. Verify OTP
 export async function verifyOtp({ phone, otp }) {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    throw new Error('بيانات الربط مع سوبابيز غير مكتملة');
-  }
-
   const cleanPhone = phone.trim().replace(/\s+/g, '');
 
   const { data: user, error } = await supabase
@@ -253,42 +240,41 @@ export async function confirmProfileUpdate({ currentPhone, name, phone, email, o
 
 // Upload file/image to Supabase 'school-lists' bucket
 export async function uploadFileToSupabase(file, folder = 'images') {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+  try {
+    const ext = file.name.split('.').pop();
+    const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${ext}`;
 
-  const ext = file.name.split('.').pop();
-  const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${ext}`;
+    const { data, error } = await supabase.storage
+      .from('school-lists')
+      .upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
 
-  const { data, error } = await supabase.storage
-    .from('school-lists')
-    .upload(fileName, file, {
-      cacheControl: '3600',
-      upsert: false
-    });
+    if (error) {
+      console.warn('Storage upload note:', error.message);
+      return null;
+    }
 
-  if (error) {
-    console.error('Supabase storage upload error:', error);
+    const { data: publicUrlData } = supabase.storage
+      .from('school-lists')
+      .getPublicUrl(data.path);
+
+    return {
+      path: publicUrlData.publicUrl,
+      filename: file.name,
+      size: file.size
+    };
+  } catch (e) {
+    console.warn('Storage exception:', e);
     return null;
   }
-
-  const { data: publicUrlData } = supabase.storage
-    .from('school-lists')
-    .getPublicUrl(data.path);
-
-  return {
-    path: publicUrlData.publicUrl,
-    filename: file.name,
-    size: file.size
-  };
 }
 
 // ================= ORDERS HELPERS =================
 
 // 1. Submit New School List Order
 export async function submitSchoolListOrder(orderPayload, imageFiles = [], docFiles = [], imageNotes = []) {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    throw new Error('بيانات الربط مع سوبابيز غير مكتملة');
-  }
-
   // Upload Images to Supabase Storage
   const uploadedImages = [];
   for (let i = 0; i < imageFiles.length; i++) {
@@ -392,8 +378,6 @@ export async function submitSchoolListOrder(orderPayload, imageFiles = [], docFi
 
 // 2. Fetch User Orders
 export async function fetchUserOrders(phone) {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return [];
-
   const cleanPhone = phone.trim().replace(/\s+/g, '');
 
   const { data, error } = await supabase
@@ -427,10 +411,6 @@ export async function fetchUserOrders(phone) {
 
 // 3. Update Existing Order (Add images/notes, change address/budget)
 export async function updateOrderInSupabase(orderId, updates, newImageFiles = [], newImageNotes = []) {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    throw new Error('بيانات الربط مع سوبابيز غير مكتملة');
-  }
-
   // Fetch existing order
   const { data: existing, error: findErr } = await supabase
     .from('orders')
@@ -542,10 +522,6 @@ export async function validateCorporateCode(code) {
 
 // 1. Fetch All Orders & Stats for Admin
 export async function fetchAdminDashboardData() {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    return { stats: null, orders: [], users: [] };
-  }
-
   const [ordersRes, usersRes] = await Promise.all([
     supabase.from('orders').select('*').order('created_at', { ascending: false }),
     supabase.from('users').select('*').order('created_at', { ascending: false })
@@ -586,10 +562,6 @@ export async function fetchAdminDashboardData() {
 
 // 2. Update Order Status (Admin)
 export async function updateOrderStatusByAdmin(orderId, newStatus, note = '') {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    throw new Error('بيانات الربط مع سوبابيز غير مكتملة');
-  }
-
   const statusLabels = {
     'new': 'استلام القائمة',
     'reviewing': 'مراجعة وتحديد الأسعار',
