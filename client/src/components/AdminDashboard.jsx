@@ -197,106 +197,12 @@ export default function AdminDashboard({ onBackToHome }) {
     document.body.removeChild(link);
   };
 
-  // Handle Admin Gate Login
-  const handleGateLogin = async (e) => {
-    e.preventDefault();
-    setGateError('');
-    setGateLoading(true);
-    try {
-      const res = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          password: passcode,
-          pin: passcode
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'رمز الدخول غير صحيح');
-
-      saveUserSession(data.user);
-      fetchDashboardData();
-    } catch (err) {
-      setGateError(err.message || 'فشل في التحقق من صلاحيات الإدارة');
-    } finally {
-      setGateLoading(false);
-    }
-  };
-
-  // If user is NOT admin, show secure login gate
+  // If user is NOT admin, silently redirect to Home with ZERO admin forms
   if (!user?.isAdmin && user?.role !== 'admin') {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center p-4">
-        <div className="bg-white rounded-3xl p-8 max-w-md w-full border border-navy/10 shadow-card text-center space-y-6">
-          <div className="w-16 h-16 bg-navy text-yellow rounded-3xl flex items-center justify-center mx-auto shadow-md">
-            <Lock className="w-8 h-8" />
-          </div>
-
-          <div className="space-y-1.5">
-            <h1 className="text-xl font-black text-navy">
-              لوحة تحكم الإدارة والمعرض
-            </h1>
-            <p className="text-xs text-navy/60 leading-relaxed">
-              هذه الصفحة مخصصة لمسؤولي ومنظمي معارض Proviea فقط. يرجى تسجيل الدخول بحساب الإدارة.
-            </p>
-          </div>
-
-          {gateError && (
-            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{gateError}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleGateLogin} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-navy text-right mb-1">
-                رمز المرور الخاص بالإدارة:
-              </label>
-              <input
-                type="password"
-                required
-                autoFocus
-                placeholder="أدخل الرمز السري..."
-                value={passcode}
-                onChange={(e) => setPasscode(e.target.value)}
-                className="w-full bg-offwhite border border-navy/15 rounded-xl px-3 py-3 text-xs text-navy text-center font-mono text-base tracking-widest focus:outline-none focus:border-navy focus:bg-white"
-              />
-              <p className="text-[10px] text-navy/40 mt-1">
-                (الرمز الافتراضي: <span className="font-mono font-bold text-navy">1020</span> أو <span className="font-mono font-bold text-navy">proviea2026</span>)
-              </p>
-            </div>
-
-            <button
-              type="submit"
-              disabled={gateLoading}
-              className="w-full bg-yellow hover:bg-yellow-dark text-navy font-black py-3.5 px-4 rounded-xl text-xs transition-all shadow flex items-center justify-center gap-2"
-            >
-              {gateLoading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin text-navy" />
-                  <span>جاري التحقق...</span>
-                </>
-              ) : (
-                <>
-                  <ShieldCheck className="w-4 h-4 text-navy" />
-                  <span>دخول لوحة التحكم</span>
-                </>
-              )}
-            </button>
-          </form>
-
-          <button
-            onClick={onBackToHome}
-            className="text-xs text-navy/50 hover:text-navy underline flex items-center justify-center gap-1 mx-auto"
-          >
-            <ArrowRight className="w-3.5 h-3.5" />
-            <span>العودة للرئيسية</span>
-          </button>
-        </div>
-      </div>
-    );
+    if (onBackToHome) {
+      setTimeout(() => onBackToHome(), 0);
+    }
+    return null;
   }
 
   return (

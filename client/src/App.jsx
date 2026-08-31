@@ -42,11 +42,11 @@ function MainApp() {
       setTrackingOrderId(orderParam);
       setScreen('orders');
       setHasSeenSplash(true);
-    } else if (isAdmin === 'true' || window.location.pathname === '/admin') {
+    } else if ((isAdmin === 'true' || window.location.pathname === '/admin') && (user?.isAdmin || user?.role === 'admin')) {
       setScreen('admin');
       setHasSeenSplash(true);
     }
-  }, []);
+  }, [user]);
 
   // Handle Splash Screen Completion
   const handleSplashFinish = () => {

@@ -17,18 +17,11 @@ import {
   RefreshCw,
   AlertCircle
 } from 'lucide-react';
-
-import { requestProfileUpdateOtp, confirmProfileUpdate, adminLogin as adminLoginSupabase, fetchUserOrders } from '../supabase';
+import { requestProfileUpdateOtp, confirmProfileUpdate, fetchUserOrders } from '../supabase';
 
 export default function AccountScreen({ onBack, onNavigateToOrders, onNavigateToAuth, onNavigateToAdmin }) {
   const { user, saveUserSession, logout } = useAuth();
   const [ordersCount, setOrdersCount] = useState(0);
-
-  // Admin Passcode Modal
-  const [showAdminLoginModal, setShowAdminLoginModal] = useState(false);
-  const [adminPasscode, setAdminPasscode] = useState('');
-  const [adminLoginError, setAdminLoginError] = useState('');
-  const [adminLoading, setAdminLoading] = useState(false);
 
   // Edit Profile States
   const [isEditing, setIsEditing] = useState(false);
@@ -53,14 +46,7 @@ export default function AccountScreen({ onBack, onNavigateToOrders, onNavigateTo
         .then((data) => {
           if (Array.isArray(data)) setOrdersCount(data.length);
         })
-        .catch(() => {
-          fetch(`/api/orders/user/${user.phone}`)
-            .then((res) => res.json())
-            .then((data) => {
-              if (Array.isArray(data)) setOrdersCount(data.length);
-            })
-            .catch((err) => console.error(err));
-        });
+        .catch((err) => console.error(err));
     }
   }, [user]);
 
@@ -74,38 +60,6 @@ export default function AccountScreen({ onBack, onNavigateToOrders, onNavigateTo
     }
     return () => clearInterval(interval);
   }, [showOtpModal, resendTimer]);
-
-  // Admin Login with Passcode
-  const handleAdminLogin = async (e) => {
-    e.preventDefault();
-    setAdminLoginError('');
-    setAdminLoading(true);
-    try {
-      let data;
-      try {
-        data = await adminLoginSupabase({ password: adminPasscode, pin: adminPasscode });
-      } catch (sbErr) {
-        const res = await fetch('/api/admin/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: adminPasscode, pin: adminPasscode })
-        });
-        data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'رمز الدخول غير صحيح');
-      }
-
-      saveUserSession(data.user);
-      setShowAdminLoginModal(false);
-      setAdminPasscode('');
-      if (onNavigateToAdmin) {
-        onNavigateToAdmin();
-      }
-    } catch (err) {
-      setAdminLoginError(err.message || 'فشل في تسجيل دخول الإدارة');
-    } finally {
-      setAdminLoading(false);
-    }
-  };
 
   // Open Edit Form with Current Data
   const handleStartEdit = () => {
@@ -134,26 +88,11 @@ export default function AccountScreen({ onBack, onNavigateToOrders, onNavigateTo
 
     setOtpLoading(true);
     try {
-      let data;
-      try {
-        data = await requestProfileUpdateOtp({
-          currentPhone: user.phone,
-          newEmail: editEmail,
-          newPhone: editPhone
-        });
-      } catch (sbErr) {
-        const res = await fetch('/api/auth/request-update-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            currentPhone: user.phone,
-            newEmail: editEmail,
-            newPhone: editPhone
-          })
-        });
-        data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'فشل في إرسال رمز التحقق');
-      }
+      const data = await requestProfileUpdateOtp({
+        currentPhone: user.phone,
+        newEmail: editEmail,
+        newPhone: editPhone
+      });
 
       if (data.simulatedOtp) {
         setSimulatedOtp(data.simulatedOtp);
@@ -199,30 +138,13 @@ export default function AccountScreen({ onBack, onNavigateToOrders, onNavigateTo
 
     setOtpLoading(true);
     try {
-      let data;
-      try {
-        data = await confirmProfileUpdate({
-          currentPhone: user.phone,
-          name: editName,
-          phone: editPhone,
-          email: editEmail,
-          otp: fullOtp
-        });
-      } catch (sbErr) {
-        const res = await fetch('/api/auth/update-profile', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            currentPhone: user.phone,
-            name: editName,
-            phone: editPhone,
-            email: editEmail,
-            otp: fullOtp
-          })
-        });
-        data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'رمز التحقق غير صحيح');
-      }
+      const data = await confirmProfileUpdate({
+        currentPhone: user.phone,
+        name: editName,
+        phone: editPhone,
+        email: editEmail,
+        otp: fullOtp
+      });
 
       saveUserSession(data.user);
       setShowOtpModal(false);
@@ -240,16 +162,11 @@ export default function AccountScreen({ onBack, onNavigateToOrders, onNavigateTo
     if (resendTimer > 0) return;
     setOtpError('');
     try {
-      const res = await fetch('/api/auth/request-update-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          currentPhone: user.phone,
-          newEmail: editEmail,
-          newPhone: editPhone
-        })
+      const data = await requestProfileUpdateOtp({
+        currentPhone: user.phone,
+        newEmail: editEmail,
+        newPhone: editPhone
       });
-      const data = await res.json();
       if (data.simulatedOtp) {
         setSimulatedOtp(data.simulatedOtp);
       }
@@ -258,6 +175,8 @@ export default function AccountScreen({ onBack, onNavigateToOrders, onNavigateTo
       setOtpError('فشل في إعادة إرسال الرمز');
     }
   };
+
+  const isUserAdmin = user?.isAdmin || user?.role === 'admin';
 
   return (
     <div className="space-y-6 max-w-xl mx-auto pb-20">
@@ -344,7 +263,7 @@ export default function AccountScreen({ onBack, onNavigateToOrders, onNavigateTo
           </div>
 
           {/* Admin Exclusive Access Card (ONLY for Admin accounts) */}
-          {(user?.isAdmin || user?.role === 'admin') && (
+          {isUserAdmin && (
             <div className="bg-gradient-to-r from-navy via-navy-light to-navy rounded-3xl p-5 text-white shadow-card space-y-3 relative overflow-hidden">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
@@ -367,7 +286,7 @@ export default function AccountScreen({ onBack, onNavigateToOrders, onNavigateTo
               >
                 <ShieldCheck className="w-4 h-4 text-navy" />
                 <span>فتح لوحة تحكم المعرض والـ CRM</span>
-                <ArrowLeft className="w-4 h-4 text-navy" />
+                <ArrowRight className="w-4 h-4 text-navy" />
               </button>
             </div>
           )}
@@ -382,7 +301,7 @@ export default function AccountScreen({ onBack, onNavigateToOrders, onNavigateTo
                 <Edit3 className="w-4 h-4 text-navy/70" />
                 <span>تعديل بيانات الحساب (الاسم، الهاتف، الإيميل)</span>
               </div>
-              <ArrowLeft className="w-4 h-4 text-navy/40" />
+              <ArrowRight className="w-4 h-4 text-navy/40" />
             </button>
 
             <button
@@ -393,21 +312,8 @@ export default function AccountScreen({ onBack, onNavigateToOrders, onNavigateTo
                 <ClipboardList className="w-4 h-4 text-navy/70" />
                 <span>استعراض وتعديل القوائم السابقة</span>
               </div>
-              <ArrowLeft className="w-4 h-4 text-navy/40" />
+              <ArrowRight className="w-4 h-4 text-navy/40" />
             </button>
-
-            {/* Secret Admin Switcher if not currently logged as admin */}
-            {!user?.isAdmin && (
-              <button
-                onClick={() => setShowAdminLoginModal(true)}
-                className="w-full py-3 px-3 flex items-center justify-between text-navy/50 hover:text-navy hover:bg-offwhite rounded-xl transition-colors text-right pt-3 text-[11px]"
-              >
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>دخول الإدارة والمنظمين (Admin Portal)</span>
-                </div>
-              </button>
-            )}
 
             <button
               onClick={logout}
@@ -429,93 +335,6 @@ export default function AccountScreen({ onBack, onNavigateToOrders, onNavigateTo
             </p>
           </div>
           <AuthModal onComplete={() => {}} />
-
-          {/* Admin Login shortcut for organizers */}
-          <div className="text-center pt-2">
-            <button
-              onClick={() => setShowAdminLoginModal(true)}
-              className="text-[11px] text-navy/40 hover:text-navy underline inline-flex items-center gap-1 font-semibold"
-            >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>دخول مسؤولي ومنظمي المعرض (Admin)</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ================= ADMIN PASSCODE LOGIN MODAL ================= */}
-      {showAdminLoginModal && (
-        <div className="fixed inset-0 z-50 bg-navy/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 space-y-5 border border-navy/10 shadow-2xl relative">
-            <div className="flex items-center justify-between border-b border-navy/10 pb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-yellow text-navy flex items-center justify-center font-bold">
-                  <ShieldCheck className="w-4 h-4" />
-                </div>
-                <h3 className="text-sm font-extrabold text-navy">
-                  تسجيل دخول الإدارة
-                </h3>
-              </div>
-              <button
-                onClick={() => setShowAdminLoginModal(false)}
-                className="p-1.5 rounded-full hover:bg-navy/10 text-navy/60"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {adminLoginError && (
-              <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{adminLoginError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleAdminLogin} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-navy mb-1">
-                  كلمة المرور / رمز PIN الخاص بالإدارة:
-                </label>
-                <input
-                  type="password"
-                  required
-                  autoFocus
-                  placeholder="أدخل الرمز السري..."
-                  value={adminPasscode}
-                  onChange={(e) => setAdminPasscode(e.target.value)}
-                  className="w-full bg-offwhite border border-navy/15 rounded-xl px-3 py-2.5 text-xs text-navy focus:outline-none focus:border-navy focus:bg-white text-center font-mono text-base tracking-widest"
-                />
-                <p className="text-[10px] text-navy/40 mt-1 text-center">
-                  (الرمز الافتراضي: <span className="font-mono font-bold text-navy">1020</span> أو <span className="font-mono font-bold text-navy">proviea2026</span>)
-                </p>
-              </div>
-
-              <div className="flex gap-2 pt-1">
-                <button
-                  type="submit"
-                  disabled={adminLoading}
-                  className="flex-1 bg-yellow hover:bg-yellow-dark text-navy font-bold py-3 px-4 rounded-xl text-xs transition-all shadow flex items-center justify-center gap-2"
-                >
-                  {adminLoading ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>جاري الدخول...</span>
-                    </>
-                  ) : (
-                    <span>دخول لوحة الإدارة</span>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowAdminLoginModal(false)}
-                  className="bg-offwhite hover:bg-navy-soft text-navy font-bold py-3 px-4 rounded-xl text-xs"
-                >
-                  إلغاء
-                </button>
-              </div>
-            </form>
-          </div>
         </div>
       )}
 
