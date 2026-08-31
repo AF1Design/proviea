@@ -17,6 +17,8 @@ import {
   Sparkles
 } from 'lucide-react';
 
+import { submitSchoolListOrder } from '../supabase';
+
 export default function ReviewModal({ formData, onBackToEdit, onSuccess }) {
   const { user } = useAuth();
   const [submitting, setSubmitting] = useState(false);
@@ -27,45 +29,52 @@ export default function ReviewModal({ formData, onBackToEdit, onSuccess }) {
     setErrorMessage('');
 
     try {
+      const imageFiles = (formData.images || []).map(img => img.file).filter(Boolean);
+      const docFiles = (formData.files || []).map(f => f.file).filter(Boolean);
+      const imageNotes = (formData.images || []).map(img => img.note || '');
+
+      const payload = {
+        userId: user?.id || '',
+        name: user?.name || 'عميل Proviea',
+        phone: user?.phone || '',
+        email: user?.email || '',
+        companyCode: formData.companyCode || 'PROVIEA15',
+        childGender: formData.childGender || 'غير محدد',
+        schoolStage: formData.schoolStage || 'غير محدد',
+        budgetTier: formData.budgetTier || 'medium',
+        deliveryType: formData.deliveryType || 'توصيل للمنزل',
+        address: formData.address || '',
+        city: formData.city || 'القاهرة / الجيزة',
+        extraNotes: formData.extraNotes || ''
+      };
+
+      // 1. Try Supabase direct first
+      try {
+        const result = await submitSchoolListOrder(payload, imageFiles, docFiles, imageNotes);
+        onSuccess(result.order);
+        return;
+      } catch (sbErr) {
+        console.warn('Supabase submit fallback to local API:', sbErr);
+      }
+
+      // 2. Fallback to local server API
       const dataPayload = new FormData();
+      dataPayload.append('userId', payload.userId);
+      dataPayload.append('name', payload.name);
+      dataPayload.append('phone', payload.phone);
+      dataPayload.append('email', payload.email);
+      dataPayload.append('companyCode', payload.companyCode);
+      dataPayload.append('childGender', payload.childGender);
+      dataPayload.append('schoolStage', payload.schoolStage);
+      dataPayload.append('budgetTier', payload.budgetTier);
+      dataPayload.append('deliveryType', payload.deliveryType);
+      dataPayload.append('address', payload.address);
+      dataPayload.append('city', payload.city);
+      dataPayload.append('extraNotes', payload.extraNotes);
+      dataPayload.append('imageNotes', JSON.stringify(imageNotes));
 
-      // Basic contact info
-      dataPayload.append('userId', user?.id || '');
-      dataPayload.append('name', user?.name || 'عميل Proviea');
-      dataPayload.append('phone', user?.phone || '');
-      dataPayload.append('email', user?.email || '');
-
-      // Corporate & discount info
-      dataPayload.append('companyCode', formData.companyCode || 'PROVIEA15');
-      dataPayload.append('childGender', formData.childGender || 'غير محدد');
-      dataPayload.append('schoolStage', formData.schoolStage || 'غير محدد');
-      dataPayload.append('budgetTier', formData.budgetTier || 'medium');
-      dataPayload.append('deliveryType', formData.deliveryType || 'توصيل للمنزل');
-      dataPayload.append('address', formData.address || '');
-      dataPayload.append('city', formData.city || 'القاهرة / الجيزة');
-      dataPayload.append('extraNotes', formData.extraNotes || '');
-
-      // Append Image Notes as JSON
-      const notesArray = (formData.images || []).map((img) => img.note || '');
-      dataPayload.append('imageNotes', JSON.stringify(notesArray));
-
-      // Append Images
-      if (formData.images && formData.images.length > 0) {
-        formData.images.forEach((imgObj) => {
-          if (imgObj.file) {
-            dataPayload.append('images', imgObj.file);
-          }
-        });
-      }
-
-      // Append Files
-      if (formData.files && formData.files.length > 0) {
-        formData.files.forEach((fileObj) => {
-          if (fileObj.file) {
-            dataPayload.append('files', fileObj.file);
-          }
-        });
-      }
+      imageFiles.forEach(file => dataPayload.append('images', file));
+      docFiles.forEach(file => dataPayload.append('files', file));
 
       const res = await fetch('/api/orders/school-list', {
         method: 'POST',
@@ -73,9 +82,7 @@ export default function ReviewModal({ formData, onBackToEdit, onSuccess }) {
       });
 
       const result = await res.json();
-      if (!res.ok) {
-        throw new Error(result.error || 'فشل في إرسال الطلب');
-      }
+      if (!res.ok) throw new Error(result.error || 'فشل في إرسال الطلب');
 
       onSuccess(result.order);
     } catch (err) {

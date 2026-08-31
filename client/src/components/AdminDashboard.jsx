@@ -26,6 +26,8 @@ import {
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
+import { fetchAdminDashboardData, updateOrderStatusByAdmin } from '../supabase';
+
 export default function AdminDashboard({ onBackToHome }) {
   const { user, saveUserSession } = useAuth();
   const [stats, setStats] = useState(null);
@@ -55,6 +57,19 @@ export default function AdminDashboard({ onBackToHome }) {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
+      // 1. Try Supabase direct first
+      try {
+        const { stats: sbStats, orders: sbOrders } = await fetchAdminDashboardData();
+        setStats(sbStats);
+        setOrders(sbOrders);
+        setFilteredOrders(sbOrders);
+        setLoading(false);
+        return;
+      } catch (sbErr) {
+        console.warn('Supabase fetch admin dashboard fallback:', sbErr);
+      }
+
+      // 2. Fallback to local server API
       const [statsRes, ordersRes] = await Promise.all([
         fetch('/api/admin/stats'),
         fetch('/api/admin/orders')
@@ -112,6 +127,19 @@ export default function AdminDashboard({ onBackToHome }) {
   // Update Order Status
   const handleUpdateStatus = async (orderId, newStatus) => {
     try {
+      // 1. Try Supabase first
+      try {
+        await updateOrderStatusByAdmin(orderId, newStatus);
+        fetchDashboardData();
+        if (viewOrderModal && viewOrderModal.id === orderId) {
+          setViewOrderModal({ ...viewOrderModal, status: newStatus });
+        }
+        return;
+      } catch (sbErr) {
+        console.warn('Supabase status update fallback:', sbErr);
+      }
+
+      // 2. Fallback to local server API
       const res = await fetch(`/api/admin/orders/${orderId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },

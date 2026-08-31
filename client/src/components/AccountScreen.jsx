@@ -18,6 +18,8 @@ import {
   AlertCircle
 } from 'lucide-react';
 
+import { requestProfileUpdateOtp, confirmProfileUpdate, adminLogin as adminLoginSupabase, fetchUserOrders } from '../supabase';
+
 export default function AccountScreen({ onBack, onNavigateToOrders, onNavigateToAuth, onNavigateToAdmin }) {
   const { user, saveUserSession, logout } = useAuth();
   const [ordersCount, setOrdersCount] = useState(0);
@@ -47,12 +49,18 @@ export default function AccountScreen({ onBack, onNavigateToOrders, onNavigateTo
 
   useEffect(() => {
     if (user?.phone) {
-      fetch(`/api/orders/user/${user.phone}`)
-        .then((res) => res.json())
+      fetchUserOrders(user.phone)
         .then((data) => {
           if (Array.isArray(data)) setOrdersCount(data.length);
         })
-        .catch((err) => console.error(err));
+        .catch(() => {
+          fetch(`/api/orders/user/${user.phone}`)
+            .then((res) => res.json())
+            .then((data) => {
+              if (Array.isArray(data)) setOrdersCount(data.length);
+            })
+            .catch((err) => console.error(err));
+        });
     }
   }, [user]);
 
@@ -73,17 +81,18 @@ export default function AccountScreen({ onBack, onNavigateToOrders, onNavigateTo
     setAdminLoginError('');
     setAdminLoading(true);
     try {
-      const res = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          password: adminPasscode,
-          pin: adminPasscode
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'رمز الدخول غير صحيح');
+      let data;
+      try {
+        data = await adminLoginSupabase({ password: adminPasscode, pin: adminPasscode });
+      } catch (sbErr) {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: adminPasscode, pin: adminPasscode })
+        });
+        data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'رمز الدخول غير صحيح');
+      }
 
       saveUserSession(data.user);
       setShowAdminLoginModal(false);
@@ -125,18 +134,26 @@ export default function AccountScreen({ onBack, onNavigateToOrders, onNavigateTo
 
     setOtpLoading(true);
     try {
-      const res = await fetch('/api/auth/request-update-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      let data;
+      try {
+        data = await requestProfileUpdateOtp({
           currentPhone: user.phone,
           newEmail: editEmail,
           newPhone: editPhone
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'فشل في إرسال رمز التحقق');
+        });
+      } catch (sbErr) {
+        const res = await fetch('/api/auth/request-update-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            currentPhone: user.phone,
+            newEmail: editEmail,
+            newPhone: editPhone
+          })
+        });
+        data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'فشل في إرسال رمز التحقق');
+      }
 
       if (data.simulatedOtp) {
         setSimulatedOtp(data.simulatedOtp);
@@ -182,20 +199,30 @@ export default function AccountScreen({ onBack, onNavigateToOrders, onNavigateTo
 
     setOtpLoading(true);
     try {
-      const res = await fetch('/api/auth/update-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      let data;
+      try {
+        data = await confirmProfileUpdate({
           currentPhone: user.phone,
           name: editName,
           phone: editPhone,
           email: editEmail,
           otp: fullOtp
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'رمز التحقق غير صحيح');
+        });
+      } catch (sbErr) {
+        const res = await fetch('/api/auth/update-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            currentPhone: user.phone,
+            name: editName,
+            phone: editPhone,
+            email: editEmail,
+            otp: fullOtp
+          })
+        });
+        data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'رمز التحقق غير صحيح');
+      }
 
       saveUserSession(data.user);
       setShowOtpModal(false);

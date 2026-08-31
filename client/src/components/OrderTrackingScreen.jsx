@@ -20,6 +20,8 @@ import {
   AlertCircle
 } from 'lucide-react';
 
+import { fetchUserOrders, updateOrderInSupabase } from '../supabase';
+
 export default function OrderTrackingScreen({ selectedOrderId, onBack }) {
   const { user } = useAuth();
   const [orders, setOrders] = useState([]);
@@ -48,8 +50,25 @@ export default function OrderTrackingScreen({ selectedOrderId, onBack }) {
     if (!user?.phone) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/orders/user/${user.phone}`);
-      const data = await res.json();
+      // 1. Try Supabase first
+      let data = [];
+      try {
+        data = await fetchUserOrders(user.phone);
+      } catch (sbErr) {
+        console.warn('Supabase fetch orders fallback:', sbErr);
+      }
+
+      // 2. If empty or failed, fallback to local API
+      if (!data || data.length === 0) {
+        try {
+          const res = await fetch(`/api/orders/user/${user.phone}`);
+          const localData = await res.json();
+          if (Array.isArray(localData)) data = localData;
+        } catch (apiErr) {
+          console.warn('Local API fetch error:', apiErr);
+        }
+      }
+
       if (Array.isArray(data)) {
         setOrders(data);
         if (selectedOrderId) {
@@ -123,6 +142,32 @@ export default function OrderTrackingScreen({ selectedOrderId, onBack }) {
     setEditErrorMsg('');
 
     try {
+      const newImageFiles = extraImages.map(img => img.file).filter(Boolean);
+      const newImageNotes = extraImages.map(img => img.note || '');
+
+      const updates = {
+        childGender: editChildGender,
+        schoolStage: editSchoolStage,
+        budgetTier: editBudgetTier,
+        deliveryType: editDeliveryType,
+        address: editAddress,
+        city: editCity,
+        extraNotes: editNotes
+      };
+
+      // 1. Try Supabase direct first
+      try {
+        const result = await updateOrderInSupabase(activeOrder.id, updates, newImageFiles, newImageNotes);
+        setActiveOrder(result.order);
+        setIsEditingOrder(false);
+        setEditSuccessMsg('تم تحديث بيانات وملاحظات القائمة بنجاح ✔');
+        fetchOrders();
+        return;
+      } catch (sbErr) {
+        console.warn('Supabase update order fallback:', sbErr);
+      }
+
+      // 2. Fallback to local server API
       const payload = new FormData();
       payload.append('extraNotes', editNotes);
       payload.append('childGender', editChildGender);
@@ -131,14 +176,10 @@ export default function OrderTrackingScreen({ selectedOrderId, onBack }) {
       payload.append('deliveryType', editDeliveryType);
       payload.append('address', editAddress);
       payload.append('city', editCity);
+      payload.append('imageNotes', JSON.stringify(newImageNotes));
 
-      // Append image notes
-      const notesArray = extraImages.map(img => img.note || '');
-      payload.append('imageNotes', JSON.stringify(notesArray));
-
-      // Append new files
-      extraImages.forEach(img => {
-        if (img.file) payload.append('images', img.file);
+      newImageFiles.forEach(img => {
+        payload.append('images', img);
       });
 
       const res = await fetch(`/api/orders/${activeOrder.id}/update`, {
