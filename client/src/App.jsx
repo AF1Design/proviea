@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Component } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import BottomNav from './components/BottomNav';
@@ -12,6 +12,52 @@ import OrderTrackingScreen from './components/OrderTrackingScreen';
 import BagsScreen from './components/BagsScreen';
 import AccountScreen from './components/AccountScreen';
 import AdminDashboard from './components/AdminDashboard';
+import { RefreshCw, AlertCircle, Home } from 'lucide-react';
+
+// Error Boundary to prevent any blank screens
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('App Error Boundary caught an error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-offwhite flex items-center justify-center p-4 text-center">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full border border-navy/10 shadow-card space-y-4">
+            <div className="w-14 h-14 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto">
+              <AlertCircle className="w-7 h-7" />
+            </div>
+            <h2 className="text-lg font-black text-navy">حدث خطأ غير متوقع</h2>
+            <p className="text-xs text-navy/60 leading-relaxed">
+              يرجى إعادة تحميل الصفحة أو العودة للصفحة الرئيسية للمنصة.
+            </p>
+            <button
+              onClick={() => {
+                this.setState({ hasError: false });
+                window.location.href = '/';
+              }}
+              className="w-full bg-yellow hover:bg-yellow-dark text-navy font-bold py-3 px-4 rounded-xl text-xs transition-all shadow flex items-center justify-center gap-2"
+            >
+              <Home className="w-4 h-4" />
+              <span>العودة للرئيسية</span>
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function MainApp() {
   const { user } = useAuth();
@@ -197,8 +243,6 @@ function MainApp() {
     </div>
   );
 }
-
-import ErrorBoundary from './components/ErrorBoundary';
 
 export default function App() {
   return (

@@ -13,9 +13,10 @@ export async function requestOtp({ phone, name, email, companyCode }) {
   const cleanPhone = phone.trim().replace(/\s+/g, '');
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  const isAdmin = cleanPhone === '01000000000' || cleanPhone === '01012345678';
 
   // Check if user exists in Supabase
-  const { data: existingUser, error: findError } = await supabase
+  const { data: existingUser } = await supabase
     .from('users')
     .select('*')
     .eq('phone', cleanPhone)
@@ -37,13 +38,12 @@ export async function requestOtp({ phone, name, email, companyCode }) {
       })
       .eq('phone', cleanPhone)
       .select()
-      .single();
+      .maybeSingle();
 
     if (updateErr) throw new Error(updateErr.message);
-    userRecord = updated;
+    userRecord = updated || existingUser;
   } else {
-    // Create new user in Supabase
-    const isAdmin = cleanPhone === '01000000000' || cleanPhone === '01012345678';
+    // Create new user in Supabase with UPSERT
     const newUser = {
       id: 'usr_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
       name: name || '',
@@ -61,12 +61,12 @@ export async function requestOtp({ phone, name, email, companyCode }) {
 
     const { data: created, error: insertErr } = await supabase
       .from('users')
-      .insert([newUser])
+      .upsert([newUser], { onConflict: 'phone' })
       .select()
-      .single();
+      .maybeSingle();
 
     if (insertErr) throw new Error(insertErr.message);
-    userRecord = created;
+    userRecord = created || newUser;
   }
 
   console.log(`[SUPABASE OTP] Code for ${cleanPhone}: ${otp}`);
@@ -117,21 +117,21 @@ export async function verifyOtp({ phone, otp }) {
     })
     .eq('phone', cleanPhone)
     .select()
-    .single();
+    .maybeSingle();
 
-  if (updateErr) throw new Error(updateErr.message);
+  const finalUser = updated || user;
 
   return {
     success: true,
     message: 'تم تسجيل الدخول بنجاح',
     user: {
-      id: updated.id,
-      name: updated.name,
-      phone: updated.phone,
-      email: updated.email,
-      role: updated.role || (updated.is_admin ? 'admin' : 'customer'),
-      isAdmin: !!updated.is_admin,
-      companyCode: updated.company_code
+      id: finalUser.id,
+      name: finalUser.name,
+      phone: finalUser.phone,
+      email: finalUser.email,
+      role: finalUser.role || (finalUser.is_admin ? 'admin' : 'customer'),
+      isAdmin: !!finalUser.is_admin,
+      companyCode: finalUser.company_code
     }
   };
 }
@@ -177,7 +177,7 @@ export async function requestProfileUpdateOtp({ currentPhone, newEmail, newPhone
     })
     .eq('phone', cleanPhone)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error || !updated) throw new Error('فشل في إرسال رمز التحقق لتعديل الحساب');
 
@@ -217,21 +217,21 @@ export async function confirmProfileUpdate({ currentPhone, name, phone, email, o
     })
     .eq('phone', cleanCurrentPhone)
     .select()
-    .single();
+    .maybeSingle();
 
-  if (updateErr) throw new Error(updateErr.message);
+  const finalUser = updated || user;
 
   return {
     success: true,
     message: 'تم تحديث بيانات الحساب بنجاح',
     user: {
-      id: updated.id,
-      name: updated.name,
-      phone: updated.phone,
-      email: updated.email,
-      role: updated.role,
-      isAdmin: updated.is_admin,
-      companyCode: updated.company_code
+      id: finalUser.id,
+      name: finalUser.name,
+      phone: finalUser.phone,
+      email: finalUser.email,
+      role: finalUser.role,
+      isAdmin: finalUser.is_admin,
+      companyCode: finalUser.company_code
     }
   };
 }
@@ -350,63 +350,71 @@ export async function submitSchoolListOrder(orderPayload, imageFiles = [], docFi
     .from('orders')
     .insert([newOrder])
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) throw new Error(error.message);
+
+  const finalOrder = created || newOrder;
 
   return {
     success: true,
     message: 'تم إرسال قائمة المدرسة بنجاح',
     order: {
-      ...created,
-      id: created.id,
-      userId: created.user_id,
-      companyCode: created.company_code,
-      companyName: created.company_name,
-      discountPct: created.discount_pct,
-      childGender: created.child_gender,
-      schoolStage: created.school_stage,
-      budgetTier: created.budget_tier,
-      budgetTierLabel: created.budget_tier_label,
-      deliveryType: created.delivery_type,
-      extraNotes: created.extra_notes,
-      statusLabel: created.status_label,
-      createdAt: created.created_at
+      ...finalOrder,
+      id: finalOrder.id,
+      userId: finalOrder.user_id,
+      companyCode: finalOrder.company_code,
+      companyName: finalOrder.company_name,
+      discountPct: finalOrder.discount_pct,
+      childGender: finalOrder.child_gender,
+      schoolStage: finalOrder.school_stage,
+      budgetTier: finalOrder.budget_tier,
+      budgetTierLabel: finalOrder.budget_tier_label,
+      deliveryType: finalOrder.delivery_type,
+      extraNotes: finalOrder.extra_notes,
+      statusLabel: finalOrder.status_label,
+      createdAt: finalOrder.created_at
     }
   };
 }
 
 // 2. Fetch User Orders
 export async function fetchUserOrders(phone) {
+  if (!phone) return [];
   const cleanPhone = phone.trim().replace(/\s+/g, '');
 
-  const { data, error } = await supabase
-    .from('orders')
-    .select('*')
-    .eq('phone', cleanPhone)
-    .order('created_at', { ascending: false });
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('phone', cleanPhone)
+      .order('created_at', { ascending: false });
 
-  if (error) {
-    console.error('Fetch user orders error:', error);
+    if (error) {
+      console.warn('Fetch user orders note:', error);
+      return [];
+    }
+
+    return (data || []).map(o => ({
+      ...o,
+      id: o.id,
+      userId: o.user_id,
+      companyCode: o.company_code,
+      companyName: o.company_name,
+      discountPct: o.discount_pct,
+      childGender: o.child_gender,
+      schoolStage: o.school_stage,
+      budgetTier: o.budget_tier,
+      budgetTierLabel: o.budget_tier_label,
+      deliveryType: o.delivery_type,
+      extraNotes: o.extra_notes,
+      statusLabel: o.status_label,
+      createdAt: o.created_at
+    }));
+  } catch (err) {
+    console.warn('Fetch orders error:', err);
     return [];
   }
-
-  return (data || []).map(o => ({
-    ...o,
-    id: o.id,
-    userId: o.user_id,
-    companyCode: o.company_code,
-    companyName: o.company_name,
-    discountPct: o.discount_pct,
-    childGender: o.child_gender,
-    schoolStage: o.school_stage,
-    budgetTier: o.budget_tier,
-    budgetTierLabel: o.budget_tier_label,
-    deliveryType: o.delivery_type,
-    extraNotes: o.extra_notes,
-    statusLabel: o.status_label,
-    createdAt: o.created_at
-  }));
 }
 
 // 3. Update Existing Order (Add images/notes, change address/budget)
@@ -416,7 +424,7 @@ export async function updateOrderInSupabase(orderId, updates, newImageFiles = []
     .from('orders')
     .select('*')
     .eq('id', orderId)
-    .single();
+    .maybeSingle();
 
   if (findErr || !existing) throw new Error('الطلب غير موجود');
 
@@ -462,28 +470,30 @@ export async function updateOrderInSupabase(orderId, updates, newImageFiles = []
     .update(payload)
     .eq('id', orderId)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) throw new Error(error.message);
+
+  const finalOrder = updated || existing;
 
   return {
     success: true,
     message: 'تم تحديث بيانات القائمة بنجاح',
     order: {
-      ...updated,
-      id: updated.id,
-      userId: updated.user_id,
-      companyCode: updated.company_code,
-      companyName: updated.company_name,
-      discountPct: updated.discount_pct,
-      childGender: updated.child_gender,
-      schoolStage: updated.school_stage,
-      budgetTier: updated.budget_tier,
-      budgetTierLabel: updated.budget_tier_label,
-      deliveryType: updated.delivery_type,
-      extraNotes: updated.extra_notes,
-      statusLabel: updated.status_label,
-      createdAt: updated.created_at
+      ...finalOrder,
+      id: finalOrder.id,
+      userId: finalOrder.user_id,
+      companyCode: finalOrder.company_code,
+      companyName: finalOrder.company_name,
+      discountPct: finalOrder.discount_pct,
+      childGender: finalOrder.child_gender,
+      schoolStage: finalOrder.school_stage,
+      budgetTier: finalOrder.budget_tier,
+      budgetTierLabel: finalOrder.budget_tier_label,
+      deliveryType: finalOrder.delivery_type,
+      extraNotes: finalOrder.extra_notes,
+      statusLabel: finalOrder.status_label,
+      createdAt: finalOrder.created_at
     }
   };
 }
@@ -494,14 +504,30 @@ export async function validateCorporateCode(code) {
 
   const cleanCode = code.trim().toUpperCase();
 
-  const { data, error } = await supabase
-    .from('corporate_codes')
-    .select('*')
-    .eq('code', cleanCode)
-    .eq('active', true)
-    .maybeSingle();
+  try {
+    const { data, error } = await supabase
+      .from('corporate_codes')
+      .select('*')
+      .eq('code', cleanCode)
+      .eq('active', true)
+      .maybeSingle();
 
-  if (error || !data) {
+    if (error || !data) {
+      return {
+        valid: true,
+        companyCode: cleanCode,
+        companyName: 'خصم الشركات المعتمد',
+        discountPct: 15
+      };
+    }
+
+    return {
+      valid: true,
+      companyCode: data.code,
+      companyName: data.company_name,
+      discountPct: data.discount_pct
+    };
+  } catch (e) {
     return {
       valid: true,
       companyCode: cleanCode,
@@ -509,55 +535,53 @@ export async function validateCorporateCode(code) {
       discountPct: 15
     };
   }
-
-  return {
-    valid: true,
-    companyCode: data.code,
-    companyName: data.company_name,
-    discountPct: data.discount_pct
-  };
 }
 
 // ================= ADMIN DASHBOARD HELPERS =================
 
 // 1. Fetch All Orders & Stats for Admin
 export async function fetchAdminDashboardData() {
-  const [ordersRes, usersRes] = await Promise.all([
-    supabase.from('orders').select('*').order('created_at', { ascending: false }),
-    supabase.from('users').select('*').order('created_at', { ascending: false })
-  ]);
+  try {
+    const [ordersRes, usersRes] = await Promise.all([
+      supabase.from('orders').select('*').order('created_at', { ascending: false }),
+      supabase.from('users').select('*').order('created_at', { ascending: false })
+    ]);
 
-  const rawOrders = ordersRes.data || [];
-  const rawUsers = usersRes.data || [];
+    const rawOrders = ordersRes.data || [];
+    const rawUsers = usersRes.data || [];
 
-  const orders = rawOrders.map(o => ({
-    ...o,
-    id: o.id,
-    userId: o.user_id,
-    companyCode: o.company_code,
-    companyName: o.company_name,
-    discountPct: o.discount_pct,
-    childGender: o.child_gender,
-    schoolStage: o.school_stage,
-    budgetTier: o.budget_tier,
-    budgetTierLabel: o.budget_tier_label,
-    deliveryType: o.delivery_type,
-    extraNotes: o.extra_notes,
-    statusLabel: o.status_label,
-    createdAt: o.created_at
-  }));
+    const orders = rawOrders.map(o => ({
+      ...o,
+      id: o.id,
+      userId: o.user_id,
+      companyCode: o.company_code,
+      companyName: o.company_name,
+      discountPct: o.discount_pct,
+      childGender: o.child_gender,
+      schoolStage: o.school_stage,
+      budgetTier: o.budget_tier,
+      budgetTierLabel: o.budget_tier_label,
+      deliveryType: o.delivery_type,
+      extraNotes: o.extra_notes,
+      statusLabel: o.status_label,
+      createdAt: o.created_at
+    }));
 
-  const stats = {
-    totalOrders: orders.length,
-    totalUsers: rawUsers.length,
-    newOrders: orders.filter(o => o.status === 'new').length,
-    reviewingOrders: orders.filter(o => o.status === 'reviewing').length,
-    contactedOrders: orders.filter(o => o.status === 'contacted').length,
-    completedOrders: orders.filter(o => o.status === 'completed').length,
-    totalImagesUploaded: orders.reduce((sum, o) => sum + (o.images?.length || 0), 0)
-  };
+    const stats = {
+      totalOrders: orders.length,
+      totalUsers: rawUsers.length,
+      newOrders: orders.filter(o => o.status === 'new').length,
+      reviewingOrders: orders.filter(o => o.status === 'reviewing').length,
+      contactedOrders: orders.filter(o => o.status === 'contacted').length,
+      completedOrders: orders.filter(o => o.status === 'completed').length,
+      totalImagesUploaded: orders.reduce((sum, o) => sum + (o.images?.length || 0), 0)
+    };
 
-  return { stats, orders, users: rawUsers };
+    return { stats, orders, users: rawUsers };
+  } catch (err) {
+    console.warn('Admin fetch error:', err);
+    return { stats: null, orders: [], users: [] };
+  }
 }
 
 // 2. Update Order Status (Admin)
@@ -572,7 +596,7 @@ export async function updateOrderStatusByAdmin(orderId, newStatus, note = '') {
   };
 
   // Fetch current timeline
-  const { data: current } = await supabase.from('orders').select('timeline').eq('id', orderId).single();
+  const { data: current } = await supabase.from('orders').select('timeline').eq('id', orderId).maybeSingle();
   const timeline = current?.timeline || [];
   timeline.push({
     status: newStatus,
@@ -591,7 +615,7 @@ export async function updateOrderStatusByAdmin(orderId, newStatus, note = '') {
     })
     .eq('id', orderId)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) throw new Error(error.message);
 

@@ -14,6 +14,8 @@ import {
   ChevronLeft
 } from 'lucide-react';
 
+import { fetchUserOrders } from '../supabase';
+
 export default function HomeScreen({ onStartSchoolList, onViewOrders }) {
   const { user } = useAuth();
   const [recentOrders, setRecentOrders] = useState([]);
@@ -22,8 +24,7 @@ export default function HomeScreen({ onStartSchoolList, onViewOrders }) {
   useEffect(() => {
     if (user?.phone) {
       setLoadingOrders(true);
-      fetch(`/api/orders/user/${user.phone}`)
-        .then((res) => res.json())
+      fetchUserOrders(user.phone)
         .then((data) => {
           if (Array.isArray(data)) setRecentOrders(data);
         })
