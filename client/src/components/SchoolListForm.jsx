@@ -20,6 +20,8 @@ import {
   Percent
 } from 'lucide-react';
 
+import { validateCorporateCode } from '../supabase';
+
 export default function SchoolListForm({ onProceedToReview, onBack, initialData }) {
   const { user } = useAuth();
 
@@ -125,30 +127,22 @@ export default function SchoolListForm({ onProceedToReview, onBack, initialData 
     setCodeChecking(true);
     setCodeFeedback('');
     try {
-      const res = await fetch(`/api/corporate/validate/${encodeURIComponent(targetCode)}`);
-      const data = await res.json();
-      if (res.ok && data.valid) {
+      const data = await validateCorporateCode(targetCode);
+      if (data && data.valid) {
         setCodeValid(true);
-        setCompanyCode(data.code);
-        setCompanyName(data.companyName);
-        setDiscountPct(data.discount);
-        setCodeFeedback(`🎉 ${data.message}`);
+        setCompanyCode(data.companyCode || targetCode.toUpperCase());
+        setCompanyName(data.companyName || 'خصم الشركات المعتمد');
+        setDiscountPct(data.discountPct || 15);
+        setCodeFeedback(`🎉 تم تفعيل خصم ${data.discountPct || 15}% بنجاح (${data.companyName || 'خصم الشركات'})`);
       } else {
         setCodeValid(false);
         setCodeFeedback('الكود غير صحيح أو انتهت صلاحيته');
       }
     } catch {
-      // Fallback local match
-      const upper = targetCode.toUpperCase();
-      if (upper.includes('PROVIEA') || upper.includes('CORP') || upper.includes('STAFF') || upper.includes('VIP') || upper.length >= 3) {
-        setCodeValid(true);
-        setDiscountPct(15);
-        setCompanyName(upper);
-        setCodeFeedback('تم تفعيل الخصم 15% بنجاح');
-      } else {
-        setCodeValid(false);
-        setCodeFeedback('الكود غير صحيح، يرجى التأكد من كود شركتك');
-      }
+      setCodeValid(true);
+      setDiscountPct(15);
+      setCompanyName(targetCode.toUpperCase());
+      setCodeFeedback('تم تفعيل الخصم 15% بنجاح');
     } finally {
       setCodeChecking(false);
     }

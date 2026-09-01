@@ -19,33 +19,35 @@ import {
 
 import { submitSchoolListOrder } from '../supabase';
 
-export default function ReviewModal({ formData, onBackToEdit, onSuccess }) {
+export default function ReviewModal({ formData = {}, onBackToEdit, onSuccess }) {
   const { user } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  const safeData = formData || {};
 
   const handleFinalSubmit = async () => {
     setSubmitting(true);
     setErrorMessage('');
 
     try {
-      const imageFiles = (formData.images || []).map(img => img.file).filter(Boolean);
-      const docFiles = (formData.files || []).map(f => f.file).filter(Boolean);
-      const imageNotes = (formData.images || []).map(img => img.note || '');
+      const imageFiles = (safeData.images || []).map(img => img?.file).filter(Boolean);
+      const docFiles = (safeData.files || []).map(f => f?.file).filter(Boolean);
+      const imageNotes = (safeData.images || []).map(img => img?.note || '');
 
       const payload = {
         userId: user?.id || '',
         name: user?.name || 'عميل Proviea',
         phone: user?.phone || '',
         email: user?.email || '',
-        companyCode: formData.companyCode || 'PROVIEA15',
-        childGender: formData.childGender || 'غير محدد',
-        schoolStage: formData.schoolStage || 'غير محدد',
-        budgetTier: formData.budgetTier || 'medium',
-        deliveryType: formData.deliveryType || 'توصيل للمنزل',
-        address: formData.address || '',
-        city: formData.city || 'القاهرة / الجيزة',
-        extraNotes: formData.extraNotes || ''
+        companyCode: safeData.companyCode || 'PROVIEA15',
+        childGender: safeData.childGender || 'غير محدد',
+        schoolStage: safeData.schoolStage || 'غير محدد',
+        budgetTier: safeData.budgetTier || 'medium',
+        deliveryType: safeData.deliveryType || 'توصيل للمنزل',
+        address: safeData.address || '',
+        city: safeData.city || 'القاهرة / الجيزة',
+        extraNotes: safeData.extraNotes || ''
       };
 
       const result = await submitSchoolListOrder(payload, imageFiles, docFiles, imageNotes);
@@ -58,8 +60,8 @@ export default function ReviewModal({ formData, onBackToEdit, onSuccess }) {
     }
   };
 
-  const imagesCount = formData.images ? formData.images.length : 0;
-  const filesCount = formData.files ? formData.files.length : 0;
+  const imagesCount = Array.isArray(safeData.images) ? safeData.images.length : 0;
+  const filesCount = Array.isArray(safeData.files) ? safeData.files.length : 0;
 
   return (
     <div className="space-y-6 max-w-xl mx-auto pb-16">
@@ -97,14 +99,14 @@ export default function ReviewModal({ formData, onBackToEdit, onSuccess }) {
             <div>
               <p className="text-xs text-navy/70">الشركة</p>
               <p className="text-sm font-extrabold text-navy">
-                {formData.companyName || formData.companyCode || 'Petro Company'}
+                {safeData.companyName || safeData.companyCode || 'خصم الشركاء'}
               </p>
             </div>
           </div>
 
           <div className="text-left bg-yellow text-navy px-3.5 py-1.5 rounded-xl shadow-sm">
             <p className="text-[10px] font-bold">الخصم المطبق</p>
-            <p className="text-sm font-black">{formData.discountPct || 15}%</p>
+            <p className="text-sm font-black">{safeData.discountPct || 15}%</p>
           </div>
         </div>
 
@@ -132,7 +134,7 @@ export default function ReviewModal({ formData, onBackToEdit, onSuccess }) {
           <div className="py-3 flex items-center justify-between">
             <span className="font-semibold text-navy/60">الطالب والمرحلة:</span>
             <span className="font-bold text-navy">
-              {formData.childGender} • مرحلة {formData.schoolStage}
+              {safeData.childGender || 'ولد'} • مرحلة {safeData.schoolStage || 'ابتدائي'}
             </span>
           </div>
 
@@ -140,7 +142,7 @@ export default function ReviewModal({ formData, onBackToEdit, onSuccess }) {
           <div className="py-3 flex items-center justify-between">
             <span className="font-semibold text-navy/60">الميزانية وتفضيل المنتجات:</span>
             <span className="font-bold text-navy">
-              {formData.budgetTierLabel || 'متوسطة'}
+              {safeData.budgetTierLabel || '⚖️ متوسطة'}
             </span>
           </div>
 
@@ -148,7 +150,7 @@ export default function ReviewModal({ formData, onBackToEdit, onSuccess }) {
           <div className="py-3 flex items-center justify-between">
             <span className="font-semibold text-navy/60">طريقة الاستلام:</span>
             <span className="font-bold text-navy">
-              {formData.deliveryType}
+              {safeData.deliveryType || 'توصيل للمنزل'}
             </span>
           </div>
 
@@ -156,16 +158,16 @@ export default function ReviewModal({ formData, onBackToEdit, onSuccess }) {
           <div className="py-3 flex items-start justify-between gap-4">
             <span className="font-semibold text-navy/60 shrink-0">العنوان:</span>
             <span className="font-bold text-navy text-left break-words">
-              {formData.city} - {formData.address}
+              {safeData.city || 'القاهرة'} - {safeData.address || 'العنوان المسجل'}
             </span>
           </div>
 
           {/* Extra Notes if any */}
-          {formData.extraNotes && (
+          {safeData.extraNotes && (
             <div className="py-3 flex items-start justify-between gap-4">
               <span className="font-semibold text-navy/60 shrink-0">ملاحظات:</span>
               <span className="text-navy text-left text-[11px]">
-                {formData.extraNotes}
+                {safeData.extraNotes}
               </span>
             </div>
           )}
@@ -173,13 +175,19 @@ export default function ReviewModal({ formData, onBackToEdit, onSuccess }) {
       </div>
 
       {/* Uploaded Images Thumbnails Mini Preview */}
-      {formData.images && formData.images.length > 0 && (
+      {Array.isArray(safeData.images) && safeData.images.length > 0 && (
         <div className="bg-white rounded-3xl p-5 border border-navy/10 shadow-card space-y-3">
-          <p className="text-xs font-bold text-navy">معاينة صور القائمة ({formData.images.length}):</p>
+          <p className="text-xs font-bold text-navy">معاينة صور القائمة ({safeData.images.length}):</p>
           <div className="grid grid-cols-5 gap-2">
-            {formData.images.map((img, idx) => (
+            {safeData.images.map((img, idx) => (
               <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-navy/20 bg-navy/5">
-                <img src={img.previewUrl} alt={`Thumb ${idx}`} className="w-full h-full object-cover" />
+                {img?.previewUrl ? (
+                  <img src={img.previewUrl} alt={`Thumb ${idx}`} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-navy/10 text-navy/40">
+                    <ImageIcon className="w-4 h-4" />
+                  </div>
+                )}
                 <span className="absolute bottom-0 inset-x-0 bg-navy/80 text-yellow text-[9px] text-center font-bold py-0.5">
                   #{idx + 1}
                 </span>
