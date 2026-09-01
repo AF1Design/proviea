@@ -431,7 +431,7 @@ export default function OrderTrackingScreen({ selectedOrderId, onBack }) {
 
           {/* Contact Support on WhatsApp */}
           <a
-            href={`https://wa.me/201000000000?text=${encodeURIComponent(
+            href={`https://wa.me/201018237667?text=${encodeURIComponent(
               `مرحباً Proviea، أريد الاستفسار عن طلبي رقم: ${order.id}`
             )}`}
             target="_blank"

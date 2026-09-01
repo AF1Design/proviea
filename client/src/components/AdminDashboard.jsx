@@ -197,6 +197,20 @@ export default function AdminDashboard({ onBackToHome }) {
     document.body.removeChild(link);
   };
 
+  // Copy all customer emails for Marketing campaigns
+  const handleCopyAllEmails = () => {
+    const emails = Array.from(
+      new Set(orders.map(o => o.email).filter(e => e && e.includes('@')))
+    );
+    if (emails.length === 0) {
+      alert('لا توجد إيميلات مسجلة بعد');
+      return;
+    }
+    const emailList = emails.join(', ');
+    navigator.clipboard?.writeText(emailList);
+    alert(`تم نسخ ${emails.length} إيميل للحافظة بنجاح لحملات التسويق والإعلانات! 🎉`);
+  };
+
   // If user is NOT admin, silently redirect to Home with ZERO admin forms
   if (!user?.isAdmin && user?.role !== 'admin') {
     if (onBackToHome) {
@@ -226,7 +240,7 @@ export default function AdminDashboard({ onBackToHome }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex items-center flex-wrap gap-2 w-full sm:w-auto">
           <button
             onClick={fetchDashboardData}
             className="flex-1 sm:flex-initial bg-white/10 hover:bg-white/20 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all flex items-center justify-center gap-1.5"
@@ -236,11 +250,19 @@ export default function AdminDashboard({ onBackToHome }) {
           </button>
 
           <button
+            onClick={handleCopyAllEmails}
+            className="flex-1 sm:flex-initial bg-white/15 hover:bg-white/25 text-yellow text-xs font-extrabold px-3 py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 border border-yellow/30"
+          >
+            <Mail className="w-3.5 h-3.5" />
+            <span>نسخ إيميلات العملاء</span>
+          </button>
+
+          <button
             onClick={handleExportCSV}
             className="flex-1 sm:flex-initial bg-yellow hover:bg-yellow-dark text-navy text-xs font-extrabold px-3.5 py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>تصدير Excel (CSV)</span>
+            <span>تصدير Excel</span>
           </button>
         </div>
       </div>

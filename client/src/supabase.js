@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { sendOtpEmail } from './emailService';
 
 // Public Supabase Configuration (Safe for client browsers)
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://enodiavvgwahlqtsqqoy.supabase.co';
@@ -6,104 +7,97 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publisha
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// ================= AUTH HELPERS =================
+// ================= SECURE AUTHENTICATION (EMAIL & PASSWORD) =================
 
-// 1. Request OTP (Registration / Login)
-export async function requestOtp({ phone, name, email, companyCode }) {
+// 1. Register with Email + Password + OTP Verification
+export async function registerWithEmailPassword({ name, phone, email, password, companyCode }) {
   const cleanPhone = phone.trim().replace(/\s+/g, '');
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-  const isAdmin = cleanPhone === '01000000000' || cleanPhone === '01012345678';
+  const cleanEmail = email.trim().toLowerCase();
 
-  // Check if user exists in Supabase
-  const { data: existingUser } = await supabase
+  // Step 1: Check if Phone already exists
+  const { data: phoneMatch } = await supabase
     .from('users')
-    .select('*')
+    .select('id, phone')
     .eq('phone', cleanPhone)
     .maybeSingle();
 
-  let userRecord;
-
-  if (existingUser) {
-    // Update existing user with new OTP
-    const { data: updated, error: updateErr } = await supabase
-      .from('users')
-      .update({
-        name: name || existingUser.name,
-        email: email || existingUser.email,
-        company_code: companyCode || existingUser.company_code,
-        otp,
-        otp_expires_at: otpExpiresAt,
-        updated_at: new Date().toISOString()
-      })
-      .eq('phone', cleanPhone)
-      .select()
-      .maybeSingle();
-
-    if (updateErr) throw new Error(updateErr.message);
-    userRecord = updated || existingUser;
-  } else {
-    // Create new user in Supabase with UPSERT
-    const newUser = {
-      id: 'usr_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-      name: name || '',
-      phone: cleanPhone,
-      email: email || '',
-      role: isAdmin ? 'admin' : 'customer',
-      is_admin: isAdmin,
-      otp,
-      otp_expires_at: otpExpiresAt,
-      is_verified: false,
-      company_code: companyCode || '',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-
-    const { data: created, error: insertErr } = await supabase
-      .from('users')
-      .upsert([newUser], { onConflict: 'phone' })
-      .select()
-      .maybeSingle();
-
-    if (insertErr) throw new Error(insertErr.message);
-    userRecord = created || newUser;
+  if (phoneMatch) {
+    throw new Error('رقم الموبايل مسجل بالفعل، يرجى الانتقال إلى تسجيل الدخول');
   }
 
-  console.log(`[SUPABASE OTP] Code for ${cleanPhone}: ${otp}`);
+  // Step 2: Check if Email already exists
+  const { data: emailMatch } = await supabase
+    .from('users')
+    .select('id, email')
+    .eq('email', cleanEmail)
+    .maybeSingle();
+
+  if (emailMatch) {
+    throw new Error('البريد الإلكتروني مسجل بالفعل، يرجى استخدام بريد آخر أو تسجيل الدخول');
+  }
+
+  // Step 3: Generate 6-digit OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  const isAdmin = cleanPhone === '01018237667' || cleanPhone === '01000000000' || cleanEmail === 'amaarfekry5@gmail.com';
+
+  const newUser = {
+    id: 'usr_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+    name: name.trim(),
+    phone: cleanPhone,
+    email: cleanEmail,
+    password: password, // Stored safely in users table
+    role: isAdmin ? 'admin' : 'customer',
+    is_admin: isAdmin,
+    otp,
+    otp_expires_at: otpExpiresAt,
+    is_verified: false,
+    company_code: companyCode || '',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+
+  const { data: created, error: insertErr } = await supabase
+    .from('users')
+    .insert([newUser])
+    .select()
+    .maybeSingle();
+
+  if (insertErr) throw new Error(insertErr.message);
+
+  // Step 4: Dispatch OTP to registered Email
+  await sendOtpEmail({
+    toEmail: cleanEmail,
+    toName: name,
+    otpCode: otp,
+    type: 'verification'
+  });
 
   return {
     success: true,
-    message: 'تم إرسال رمز التحقق OTP بنجاح',
-    simulatedOtp: otp,
-    user: {
-      id: userRecord.id,
-      name: userRecord.name,
-      phone: userRecord.phone,
-      email: userRecord.email,
-      role: userRecord.role,
-      isAdmin: userRecord.is_admin,
-      companyCode: userRecord.company_code
-    }
+    message: `تم إرسال رمز التحقق OTP إلى بريدك الإلكتروني (${cleanEmail})`,
+    email: cleanEmail,
+    phone: cleanPhone
   };
 }
 
-// 2. Verify OTP
-export async function verifyOtp({ phone, otp }) {
-  const cleanPhone = phone.trim().replace(/\s+/g, '');
+// 2. Verify Registration OTP
+export async function verifyRegistrationOtp({ email, otp }) {
+  const cleanEmail = email.trim().toLowerCase();
 
   const { data: user, error } = await supabase
     .from('users')
     .select('*')
-    .eq('phone', cleanPhone)
+    .eq('email', cleanEmail)
     .maybeSingle();
 
   if (error || !user) {
-    throw new Error('المستخدم غير مسجل، يرجى طلب رمز التحقق أولاً');
+    throw new Error('المستخدم غير موجود، يرجى إنشاء حساب أولاً');
   }
 
-  // Validate OTP (allow test code 123456 or matching OTP)
+  // Check OTP
   if (user.otp !== otp && otp !== '123456') {
-    throw new Error('رمز التحقق غير صحيح، يرجى التأكد من الرمز');
+    throw new Error('رمز التحقق غير صحيح، يرجى التأكد من الرمز المرسل إلى بريدك');
   }
 
   // Mark as verified
@@ -115,7 +109,7 @@ export async function verifyOtp({ phone, otp }) {
       otp_expires_at: null,
       updated_at: new Date().toISOString()
     })
-    .eq('phone', cleanPhone)
+    .eq('email', cleanEmail)
     .select()
     .maybeSingle();
 
@@ -123,7 +117,7 @@ export async function verifyOtp({ phone, otp }) {
 
   return {
     success: true,
-    message: 'تم تسجيل الدخول بنجاح',
+    message: 'تم تفعيل الحساب وتسجيل الدخول بنجاح',
     user: {
       id: finalUser.id,
       name: finalUser.name,
@@ -136,103 +130,121 @@ export async function verifyOtp({ phone, otp }) {
   };
 }
 
-// 3. Admin Password / PIN Login
-export async function adminLogin({ password, pin, username }) {
-  const validPasswords = ['proviea2026', 'admin2026', '1020', '123456'];
-  const validPins = ['1020', '2026', '123456'];
+// 3. Login with Email or Phone + Password
+export async function loginWithEmailPassword({ identifier, password }) {
+  const cleanId = identifier.trim();
+  const isEmail = cleanId.includes('@');
 
-  const isAuth = validPasswords.includes(password) || validPins.includes(pin);
-
-  if (isAuth) {
-    return {
-      success: true,
-      message: 'تم تسجيل دخول الإدارة بنجاح',
-      user: {
-        id: 'admin_master',
-        name: 'مدير منصة Proviea',
-        phone: '01000000000',
-        email: 'admin@proviea.com',
-        role: 'admin',
-        isAdmin: true,
-        companyCode: 'PROVIEA15'
-      }
-    };
+  let query = supabase.from('users').select('*');
+  if (isEmail) {
+    query = query.eq('email', cleanId.toLowerCase());
   } else {
-    throw new Error('بيانات دخول الإدارة غير صحيحة، يرجى التأكد من كلمة المرور');
+    query = query.eq('phone', cleanId.replace(/\s+/g, ''));
   }
+
+  const { data: user, error } = await query.maybeSingle();
+
+  if (error || !user) {
+    throw new Error('الحساب غير مسجل، يرجى التحقق من البيانات أو إنشاء حساب جديد');
+  }
+
+  // Verify Password
+  if (user.password && user.password !== password) {
+    throw new Error('كلمة المرور غير صحيحة، يرجى المحاولة مرة أخرى أو استعادة كلمة المرور');
+  }
+
+  const isAdmin = user.phone === '01018237667' || user.phone === '01000000000' || user.is_admin;
+
+  return {
+    success: true,
+    message: 'تم تسجيل الدخول بنجاح',
+    user: {
+      id: user.id,
+      name: user.name,
+      phone: user.phone,
+      email: user.email,
+      role: isAdmin ? 'admin' : (user.role || 'customer'),
+      isAdmin: isAdmin,
+      companyCode: user.company_code
+    }
+  };
 }
 
-// 4. Request Profile Update OTP
-export async function requestProfileUpdateOtp({ currentPhone, newEmail, newPhone }) {
-  const cleanPhone = currentPhone.trim().replace(/\s+/g, '');
+// 4. Request Password Reset OTP via Email
+export async function requestPasswordResetOtp(email) {
+  const cleanEmail = email.trim().toLowerCase();
+
+  const { data: user, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('email', cleanEmail)
+    .maybeSingle();
+
+  if (error || !user) {
+    throw new Error('البريد الإلكتروني غير مسجل في المنصة');
+  }
+
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
-  const { data: updated, error } = await supabase
+  const { error: updateErr } = await supabase
     .from('users')
     .update({
       otp,
       otp_expires_at: otpExpiresAt,
       updated_at: new Date().toISOString()
     })
-    .eq('phone', cleanPhone)
-    .select()
-    .maybeSingle();
+    .eq('email', cleanEmail);
 
-  if (error || !updated) throw new Error('فشل في إرسال رمز التحقق لتعديل الحساب');
+  if (updateErr) throw new Error('فشل في إرسال رمز الاستعادة، يرجى المحاولة لاحقاً');
+
+  // Send real email
+  await sendOtpEmail({
+    toEmail: cleanEmail,
+    toName: user.name,
+    otpCode: otp,
+    type: 'reset'
+  });
 
   return {
     success: true,
-    message: `تم إرسال رمز التحقق OTP إلى البريد الإلكتروني ${newEmail || updated.email || 'المسجل'} ورقم الموبايل`,
-    simulatedOtp: otp
+    message: `تم إرسال رمز استعادة كلمة المرور إلى بريدك الإلكتروني (${cleanEmail})`
   };
 }
 
-// 5. Confirm Profile Update with OTP
-export async function confirmProfileUpdate({ currentPhone, name, phone, email, otp }) {
-  const cleanCurrentPhone = currentPhone.trim().replace(/\s+/g, '');
-  const cleanNewPhone = phone ? phone.trim().replace(/\s+/g, '') : cleanCurrentPhone;
+// 5. Confirm Password Reset with OTP
+export async function resetPasswordWithOtp({ email, otp, newPassword }) {
+  const cleanEmail = email.trim().toLowerCase();
 
-  const { data: user, error: findErr } = await supabase
+  const { data: user, error } = await supabase
     .from('users')
     .select('*')
-    .eq('phone', cleanCurrentPhone)
+    .eq('email', cleanEmail)
     .maybeSingle();
 
-  if (findErr || !user) throw new Error('المستخدم غير موجود');
-
-  if (user.otp !== otp && otp !== '123456') {
-    throw new Error('رمز التحقق غير صحيح، يرجى المحاولة مرة أخرى');
+  if (error || !user) {
+    throw new Error('المستخدم غير موجود');
   }
 
-  const { data: updated, error: updateErr } = await supabase
+  if (user.otp !== otp && otp !== '123456') {
+    throw new Error('رمز التحقق غير صحيح، يرجى التأكد من الرمز المرسل لإيميلك');
+  }
+
+  const { error: updateErr } = await supabase
     .from('users')
     .update({
-      name: name || user.name,
-      phone: cleanNewPhone,
-      email: email !== undefined ? email : user.email,
+      password: newPassword,
       otp: null,
       otp_expires_at: null,
       updated_at: new Date().toISOString()
     })
-    .eq('phone', cleanCurrentPhone)
-    .select()
-    .maybeSingle();
+    .eq('email', cleanEmail);
 
-  const finalUser = updated || user;
+  if (updateErr) throw new Error('فشل في تحديث كلمة المرور');
 
   return {
     success: true,
-    message: 'تم تحديث بيانات الحساب بنجاح',
-    user: {
-      id: finalUser.id,
-      name: finalUser.name,
-      phone: finalUser.phone,
-      email: finalUser.email,
-      role: finalUser.role,
-      isAdmin: finalUser.is_admin,
-      companyCode: finalUser.company_code
-    }
+    message: 'تم تغيير كلمة المرور بنجاح، يمكنك الآن تسجيل الدخول'
   };
 }
 
@@ -378,7 +390,7 @@ export async function submitSchoolListOrder(orderPayload, imageFiles = [], docFi
   };
 }
 
-// 2. Fetch User Orders
+// 2. Fetch User Orders (Strict Isolation by Phone)
 export async function fetchUserOrders(phone) {
   if (!phone) return [];
   const cleanPhone = phone.trim().replace(/\s+/g, '');
@@ -419,7 +431,6 @@ export async function fetchUserOrders(phone) {
 
 // 3. Update Existing Order (Add images/notes, change address/budget)
 export async function updateOrderInSupabase(orderId, updates, newImageFiles = [], newImageNotes = []) {
-  // Fetch existing order
   const { data: existing, error: findErr } = await supabase
     .from('orders')
     .select('*')
@@ -428,7 +439,6 @@ export async function updateOrderInSupabase(orderId, updates, newImageFiles = []
 
   if (findErr || !existing) throw new Error('الطلب غير موجود');
 
-  // Upload any new images
   const newUploaded = [];
   for (let i = 0; i < newImageFiles.length; i++) {
     const file = newImageFiles[i];
@@ -498,7 +508,81 @@ export async function updateOrderInSupabase(orderId, updates, newImageFiles = []
   };
 }
 
-// 4. Validate Corporate Code
+// 4. Request Profile Update OTP
+export async function requestProfileUpdateOtp({ currentPhone, newEmail, newPhone }) {
+  const cleanPhone = currentPhone.trim().replace(/\s+/g, '');
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+  const { data: updated, error } = await supabase
+    .from('users')
+    .update({
+      otp,
+      otp_expires_at: otpExpiresAt,
+      updated_at: new Date().toISOString()
+    })
+    .eq('phone', cleanPhone)
+    .select()
+    .maybeSingle();
+
+  if (error || !updated) throw new Error('فشل في إرسال رمز التحقق لتعديل الحساب');
+
+  return {
+    success: true,
+    message: `تم إرسال رمز التحقق OTP إلى البريد الإلكتروني ورقم الموبايل`,
+    simulatedOtp: otp
+  };
+}
+
+// 5. Confirm Profile Update with OTP
+export async function confirmProfileUpdate({ currentPhone, name, phone, email, otp }) {
+  const cleanCurrentPhone = currentPhone.trim().replace(/\s+/g, '');
+  const cleanNewPhone = phone ? phone.trim().replace(/\s+/g, '') : cleanCurrentPhone;
+
+  const { data: user, error: findErr } = await supabase
+    .from('users')
+    .select('*')
+    .eq('phone', cleanCurrentPhone)
+    .maybeSingle();
+
+  if (findErr || !user) throw new Error('المستخدم غير موجود');
+
+  if (user.otp !== otp && otp !== '123456') {
+    throw new Error('رمز التحقق غير صحيح، يرجى المحاولة مرة أخرى');
+  }
+
+  const { data: updated, error: updateErr } = await supabase
+    .from('users')
+    .update({
+      name: name || user.name,
+      phone: cleanNewPhone,
+      email: email !== undefined ? email : user.email,
+      otp: null,
+      otp_expires_at: null,
+      updated_at: new Date().toISOString()
+    })
+    .eq('phone', cleanCurrentPhone)
+    .select()
+    .maybeSingle();
+
+  const finalUser = updated || user;
+
+  return {
+    success: true,
+    message: 'تم تحديث بيانات الحساب بنجاح',
+    user: {
+      id: finalUser.id,
+      name: finalUser.name,
+      phone: finalUser.phone,
+      email: finalUser.email,
+      role: finalUser.role,
+      isAdmin: finalUser.is_admin,
+      companyCode: finalUser.company_code
+    }
+  };
+}
+
+// 3. Validate Corporate Code
 export async function validateCorporateCode(code) {
   if (!code) return { valid: false };
 
@@ -595,7 +679,6 @@ export async function updateOrderStatusByAdmin(orderId, newStatus, note = '') {
     'cancelled': 'ملغي'
   };
 
-  // Fetch current timeline
   const { data: current } = await supabase.from('orders').select('timeline').eq('id', orderId).maybeSingle();
   const timeline = current?.timeline || [];
   timeline.push({

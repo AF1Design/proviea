@@ -1,5 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { requestOtp, verifyOtp as verifyOtpSupabase, adminLogin as adminLoginSupabase } from '../supabase';
+import { 
+  registerWithEmailPassword, 
+  loginWithEmailPassword, 
+  verifyRegistrationOtp, 
+  requestPasswordResetOtp, 
+  resetPasswordWithOtp 
+} from '../supabase';
 
 const AuthContext = createContext(null);
 
@@ -21,15 +27,15 @@ export function AuthProvider({ children }) {
     localStorage.setItem('proviea_user', JSON.stringify(userData));
   };
 
-  // Register via Supabase Cloud
-  const register = async (name, phone, email, companyCode = '') => {
+  // 1. Register with Email & Password
+  const register = async ({ name, phone, email, password, companyCode = '' }) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await requestOtp({ name, phone, email, companyCode });
+      const data = await registerWithEmailPassword({ name, phone, email, password, companyCode });
       return data;
     } catch (err) {
-      const msg = err.message || 'فشل في إرسال رمز التحقق';
+      const msg = err.message || 'فشل في إنشاء الحساب';
       setError(msg);
       throw new Error(msg);
     } finally {
@@ -37,32 +43,65 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Login via Supabase Cloud
-  const requestLoginOtp = async (phone) => {
+  // 2. Verify Registration OTP
+  const verifyOtp = async (email, otp) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await requestOtp({ phone });
-      return data;
-    } catch (err) {
-      const msg = err.message || 'فشل في إرسال رمز التحقق';
-      setError(msg);
-      throw new Error(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Verify OTP via Supabase Cloud
-  const verifyOtp = async (phone, otp) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await verifyOtpSupabase({ phone, otp });
+      const data = await verifyRegistrationOtp({ email, otp });
       saveUserSession(data.user);
       return data;
     } catch (err) {
       const msg = err.message || 'رمز التحقق غير صحيح';
+      setError(msg);
+      throw new Error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 3. Login with Email or Phone + Password
+  const login = async ({ identifier, password }) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await loginWithEmailPassword({ identifier, password });
+      saveUserSession(data.user);
+      return data;
+    } catch (err) {
+      const msg = err.message || 'فشل في تسجيل الدخول';
+      setError(msg);
+      throw new Error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 4. Request Password Reset OTP
+  const requestResetOtp = async (email) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await requestPasswordResetOtp(email);
+      return data;
+    } catch (err) {
+      const msg = err.message || 'فشل في إرسال رمز الاستعادة';
+      setError(msg);
+      throw new Error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 5. Confirm Password Reset
+  const resetPassword = async ({ email, otp, newPassword }) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await resetPasswordWithOtp({ email, otp, newPassword });
+      return data;
+    } catch (err) {
+      const msg = err.message || 'فشل في تغيير كلمة المرور';
       setError(msg);
       throw new Error(msg);
     } finally {
@@ -82,8 +121,10 @@ export function AuthProvider({ children }) {
         loading,
         error,
         register,
-        requestLoginOtp,
         verifyOtp,
+        login,
+        requestResetOtp,
+        resetPassword,
         logout,
         saveUserSession
       }}

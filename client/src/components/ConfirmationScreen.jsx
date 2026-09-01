@@ -41,7 +41,7 @@ export default function ConfirmationScreen({ order, onTrackOrder, onNewList }) {
     const text = encodeURIComponent(
       `أهلاً Proviea! قمت بإرسال قائمة المدرسة الخاصة بي برقم طلب: ${orderId} (${companyName}) وأريد متابعة التجهيز.`
     );
-    window.open(`https://wa.me/?text=${text}`, '_blank');
+    window.open(`https://wa.me/201018237667?text=${text}`, '_blank');
   };
 
   return (
