@@ -79,6 +79,8 @@ export default async function handler(req, res) {
       </div>
     `;
 
+    const senderEmail = process.env.RESEND_SENDER_EMAIL || 'Proviea <onboarding@resend.dev>';
+
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -86,7 +88,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: 'Proviea <info@kemetmisr.com>',
+        from: senderEmail,
         to: [toEmail.trim()],
         subject: subject,
         html: htmlContent
