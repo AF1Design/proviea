@@ -24,11 +24,14 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'toEmail and otpCode are required' });
     }
 
-    const resendApiKey = process.env.RESEND_API_KEY;
+    const resendApiKey = process.env.RESEND_API_KEY || process.env.VITE_RESEND_API_KEY;
 
     if (!resendApiKey) {
-      console.error('RESEND_API_KEY environment variable is missing');
-      return res.status(500).json({ error: 'RESEND_API_KEY environment variable is not configured' });
+      console.error('[API SEND-OTP] RESEND_API_KEY is not defined in environment variables');
+      return res.status(500).json({ 
+        error: 'RESEND_API_KEY is not configured in Vercel Environment Variables. Please add RESEND_API_KEY in Vercel Project Settings.',
+        code: 'MISSING_API_KEY'
+      });
     }
 
     const isReset = type === 'reset';
@@ -79,12 +82,12 @@ export default async function handler(req, res) {
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${resendApiKey}`,
+        'Authorization': `Bearer ${resendApiKey.trim()}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         from: 'Proviea <info@kemetmisr.com>',
-        to: [toEmail],
+        to: [toEmail.trim()],
         subject: subject,
         html: htmlContent
       })
@@ -93,13 +96,14 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('Resend error:', data);
-      return res.status(response.status).json(data);
+      console.error('[RESEND API ERROR]', data);
+      return res.status(response.status).json({ error: data.message || 'Resend error', details: data });
     }
 
+    console.log('[RESEND SUCCESS] Email queued with ID:', data.id);
     return res.status(200).json({ success: true, id: data.id });
   } catch (error) {
-    console.error('Send OTP Serverless error:', error);
+    console.error('[SEND OTP EXCEPTION]', error);
     return res.status(500).json({ error: error.message });
   }
 }

@@ -11,7 +11,7 @@ export async function sendOtpEmail({ toEmail, toName, otpCode, type = 'verificat
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        toEmail,
+        toEmail: toEmail.trim(),
         toName: toName || 'عميلنا العزيز',
         otpCode,
         type
@@ -23,11 +23,15 @@ export async function sendOtpEmail({ toEmail, toName, otpCode, type = 'verificat
       console.log('Real Email sent successfully via Resend:', data);
       return { success: true, id: data.id };
     } else {
-      console.warn('Serverless email dispatch warning:', data);
-      return { success: true, warning: data };
+      console.warn('Serverless email dispatch response:', data);
+      return { 
+        success: false, 
+        warning: data.error || 'تعذر إرسال الإيميل', 
+        details: data 
+      };
     }
   } catch (err) {
-    console.warn('Email dispatch network warning:', err);
-    return { success: true };
+    console.warn('Email dispatch network error:', err);
+    return { success: false, error: err.message };
   }
 }
