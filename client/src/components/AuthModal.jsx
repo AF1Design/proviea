@@ -8,18 +8,16 @@ import {
   ArrowRight, 
   ShieldCheck, 
   RefreshCw, 
-  Sparkles, 
   CheckCircle2,
   AlertCircle,
-  KeyRound,
   Eye,
   EyeOff
 } from 'lucide-react';
 
-export default function AuthModal({ onComplete, onCancel }) {
+export default function AuthModal({ onComplete }) {
   const { register, verifyOtp, login, requestResetOtp, resetPassword, loading } = useAuth();
 
-  // Screen Modes: 'login' | 'register' | 'register_otp' | 'forgot_password' | 'reset_otp'
+  // Screen Modes: 'register' | 'login' | 'register_otp' | 'forgot_password' | 'reset_otp'
   const [mode, setMode] = useState('register');
 
   // Form Fields
