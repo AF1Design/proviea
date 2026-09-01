@@ -47,28 +47,13 @@ export default function OrderTrackingScreen({ selectedOrderId, onBack }) {
   const imageInputRef = useRef(null);
 
   const fetchOrders = async () => {
-    if (!user?.phone) return;
+    if (!user?.phone) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      // 1. Try Supabase first
-      let data = [];
-      try {
-        data = await fetchUserOrders(user.phone);
-      } catch (sbErr) {
-        console.warn('Supabase fetch orders fallback:', sbErr);
-      }
-
-      // 2. If empty or failed, fallback to local API
-      if (!data || data.length === 0) {
-        try {
-          const res = await fetch(`/api/orders/user/${user.phone}`);
-          const localData = await res.json();
-          if (Array.isArray(localData)) data = localData;
-        } catch (apiErr) {
-          console.warn('Local API fetch error:', apiErr);
-        }
-      }
-
+      const data = await fetchUserOrders(user.phone);
       if (Array.isArray(data)) {
         setOrders(data);
         if (selectedOrderId) {

@@ -48,46 +48,11 @@ export default function ReviewModal({ formData, onBackToEdit, onSuccess }) {
         extraNotes: formData.extraNotes || ''
       };
 
-      // 1. Try Supabase direct first
-      try {
-        const result = await submitSchoolListOrder(payload, imageFiles, docFiles, imageNotes);
-        onSuccess(result.order);
-        return;
-      } catch (sbErr) {
-        console.warn('Supabase submit fallback to local API:', sbErr);
-      }
-
-      // 2. Fallback to local server API
-      const dataPayload = new FormData();
-      dataPayload.append('userId', payload.userId);
-      dataPayload.append('name', payload.name);
-      dataPayload.append('phone', payload.phone);
-      dataPayload.append('email', payload.email);
-      dataPayload.append('companyCode', payload.companyCode);
-      dataPayload.append('childGender', payload.childGender);
-      dataPayload.append('schoolStage', payload.schoolStage);
-      dataPayload.append('budgetTier', payload.budgetTier);
-      dataPayload.append('deliveryType', payload.deliveryType);
-      dataPayload.append('address', payload.address);
-      dataPayload.append('city', payload.city);
-      dataPayload.append('extraNotes', payload.extraNotes);
-      dataPayload.append('imageNotes', JSON.stringify(imageNotes));
-
-      imageFiles.forEach(file => dataPayload.append('images', file));
-      docFiles.forEach(file => dataPayload.append('files', file));
-
-      const res = await fetch('/api/orders/school-list', {
-        method: 'POST',
-        body: dataPayload
-      });
-
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error || 'فشل في إرسال الطلب');
-
+      const result = await submitSchoolListOrder(payload, imageFiles, docFiles, imageNotes);
       onSuccess(result.order);
     } catch (err) {
-      console.error('Submit error:', err);
-      setErrorMessage(err.message || 'حدث خطأ أثناء إرسال الطلب، يرجى إعادة المحاولة');
+      console.error('Submit order error:', err);
+      setErrorMessage(err.message || 'حدث خطأ أثناء إرسال الطلب، يرجى المحاولة مرة أخرى');
     } finally {
       setSubmitting(false);
     }
