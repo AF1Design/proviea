@@ -648,21 +648,24 @@ export default function SchoolListForm({ onProceedToReview, onBack, initialData 
           {[
             { id: 'توصيل للمنزل', icon: Home, label: 'توصيل لباب المنزل 🏠' },
             { id: 'توصيل للشركة', icon: Building2, label: 'توصيل لمقر العمل / الشركة 🏢' }
-          ].map((del) => (
-            <button
-              key={del.id}
-              type="button"
-              onClick={() => setDeliveryType(del.id)}
-              className={`p-3 rounded-2xl border text-xs font-bold transition-all text-center flex items-center justify-center gap-2 ${
-                deliveryType === del.id
-                  ? 'bg-navy text-yellow border-navy shadow-sm'
-                  : 'bg-offwhite text-navy/80 border-navy/10 hover:border-navy/30'
-              }`}
-            >
-              <del.icon className="w-4 h-4" />
-              <span>{del.label}</span>
-            </button>
-          ))}
+          ].map((del) => {
+            const DeliveryIcon = del.icon;
+            return (
+              <button
+                key={del.id}
+                type="button"
+                onClick={() => setDeliveryType(del.id)}
+                className={`p-3 rounded-2xl border text-xs font-bold transition-all text-center flex items-center justify-center gap-2 ${
+                  deliveryType === del.id
+                    ? 'bg-navy text-yellow border-navy shadow-sm'
+                    : 'bg-offwhite text-navy/80 border-navy/10 hover:border-navy/30'
+                }`}
+              >
+                <DeliveryIcon className="w-4 h-4" />
+                <span>{del.label}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* City / Area */}

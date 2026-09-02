@@ -41,9 +41,14 @@ class ErrorBoundary extends Component {
             <p className="text-xs text-navy/60 leading-relaxed">
               يرجى إعادة تحميل الصفحة أو العودة للصفحة الرئيسية للمنصة.
             </p>
+            {this.state.error?.message && (
+              <p className="text-[10px] text-red-500/80 font-mono bg-red-50 p-2 rounded-lg break-words text-left">
+                {this.state.error.message}
+              </p>
+            )}
             <button
               onClick={() => {
-                this.setState({ hasError: false });
+                this.setState({ hasError: false, error: null });
                 window.location.href = '/';
               }}
               className="w-full bg-yellow hover:bg-yellow-dark text-navy font-bold py-3 px-4 rounded-xl text-xs transition-all shadow flex items-center justify-center gap-2"
