@@ -15,102 +15,69 @@ export async function registerWithEmailPassword({ name, phone, email, password, 
   const cleanEmail = email.trim().toLowerCase();
 
   // Step 1: Check if an ALREADY VERIFIED user exists with this phone
-  const { data: verifiedPhoneMatch } = await supabase
+  const { data: verifiedPhoneUsers } = await supabase
     .from('users')
     .select('id, phone, is_verified')
     .eq('phone', cleanPhone)
     .eq('is_verified', true)
-    .maybeSingle();
+    .limit(1);
 
-  if (verifiedPhoneMatch) {
+  if (verifiedPhoneUsers && verifiedPhoneUsers.length > 0) {
     throw new Error('رقم الموبايل مسجل ومفعل بالفعل، يرجى الانتقال إلى تسجيل الدخول');
   }
 
   // Step 2: Check if an ALREADY VERIFIED user exists with this email
-  const { data: verifiedEmailMatch } = await supabase
+  const { data: verifiedEmailUsers } = await supabase
     .from('users')
     .select('id, email, is_verified')
     .eq('email', cleanEmail)
     .eq('is_verified', true)
-    .maybeSingle();
+    .limit(1);
 
-  if (verifiedEmailMatch) {
+  if (verifiedEmailUsers && verifiedEmailUsers.length > 0) {
     throw new Error('البريد الإلكتروني مسجل ومفعل بالفعل، يرجى استخدام بريد آخر أو تسجيل الدخول');
   }
 
-  // Step 3: Check if there is an unverified pending record
-  const { data: pendingByPhone } = await supabase
-    .from('users')
-    .select('id, is_verified')
-    .eq('phone', cleanPhone)
-    .eq('is_verified', false)
-    .maybeSingle();
-
-  const { data: pendingByEmail } = await supabase
-    .from('users')
-    .select('id, is_verified')
-    .eq('email', cleanEmail)
-    .eq('is_verified', false)
-    .maybeSingle();
-
-  const pendingUser = pendingByPhone || pendingByEmail;
+  // Clean up any unverified pending records for this email or phone
+  try {
+    await supabase
+      .from('users')
+      .delete()
+      .eq('is_verified', false)
+      .or(`email.eq.${cleanEmail},phone.eq.${cleanPhone}`);
+  } catch (cleanErr) {
+    console.warn('Cleanup warning:', cleanErr);
+  }
 
   // Generate 6-digit OTP
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
   const isAdmin = cleanPhone === '01018237667' || cleanPhone === '01000000000' || cleanEmail === 'amaarfekry5@gmail.com';
 
-  if (pendingUser) {
-    // User requested resend or is updating their pending registration -> update OTP and info smoothly!
-    const updatePayload = {
-      name: name.trim(),
-      phone: cleanPhone,
-      email: cleanEmail,
-      password: password,
-      otp,
-      otp_expires_at: otpExpiresAt,
-      company_code: companyCode || '',
-      updated_at: new Date().toISOString()
-    };
+  const newUser = {
+    id: 'usr_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+    name: name.trim(),
+    phone: cleanPhone,
+    email: cleanEmail,
+    password: password,
+    role: isAdmin ? 'admin' : 'customer',
+    is_admin: isAdmin,
+    otp,
+    otp_expires_at: otpExpiresAt,
+    is_verified: false,
+    company_code: companyCode || '',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
 
-    let { error: updateErr } = await supabase
-      .from('users')
-      .update(updatePayload)
-      .eq('id', pendingUser.id);
+  let { error: insertErr } = await supabase
+    .from('users')
+    .insert([newUser]);
 
-    if (updateErr && (updateErr.message?.includes('password') || updateErr.code === '42703')) {
-      delete updatePayload.password;
-      await supabase.from('users').update(updatePayload).eq('id', pendingUser.id);
-    }
-  } else {
-    // Brand new user -> insert as unverified
-    const newUser = {
-      id: 'usr_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-      name: name.trim(),
-      phone: cleanPhone,
-      email: cleanEmail,
-      password: password,
-      role: isAdmin ? 'admin' : 'customer',
-      is_admin: isAdmin,
-      otp,
-      otp_expires_at: otpExpiresAt,
-      is_verified: false,
-      company_code: companyCode || '',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-
-    let { error: insertErr } = await supabase
-      .from('users')
-      .insert([newUser])
-      .select()
-      .maybeSingle();
-
-    if (insertErr && (insertErr.message?.includes('password') || insertErr.code === '42703')) {
-      const fallbackUser = { ...newUser };
-      delete fallbackUser.password;
-      await supabase.from('users').insert([fallbackUser]);
-    }
+  if (insertErr && (insertErr.message?.includes('password') || insertErr.code === '42703')) {
+    const fallbackUser = { ...newUser };
+    delete fallbackUser.password;
+    await supabase.from('users').insert([fallbackUser]);
   }
 
   // Step 4: Dispatch real OTP to registered Email
@@ -137,15 +104,18 @@ export async function registerWithEmailPassword({ name, phone, email, password, 
 export async function verifyRegistrationOtp({ email, otp }) {
   const cleanEmail = email.trim().toLowerCase();
 
-  const { data: user, error } = await supabase
+  const { data: users, error } = await supabase
     .from('users')
     .select('*')
     .eq('email', cleanEmail)
-    .maybeSingle();
+    .order('created_at', { ascending: false })
+    .limit(1);
 
-  if (error || !user) {
+  if (error || !users || users.length === 0) {
     throw new Error('المستخدم غير موجود، يرجى ملء بيانات التسجيل أولاً');
   }
+
+  const user = users[0];
 
   // Check OTP
   if (user.otp !== otp && otp !== '123456') {
@@ -194,18 +164,22 @@ export async function loginWithEmailPassword({ identifier, password }) {
     query = query.eq('phone', cleanId.replace(/\s+/g, ''));
   }
 
-  const { data: user, error } = await query.maybeSingle();
+  const { data: users, error } = await query
+    .order('created_at', { ascending: false })
+    .limit(1);
 
-  if (error || !user) {
+  if (error || !users || users.length === 0) {
     throw new Error('الحساب غير مسجل، يرجى التحقق من البيانات أو إنشاء حساب جديد');
   }
+
+  const user = users[0];
 
   // Verify Password
   if (user.password && user.password !== password) {
     throw new Error('كلمة المرور غير صحيحة، يرجى المحاولة مرة أخرى أو استعادة كلمة المرور');
   }
 
-  const isAdmin = user.phone === '01018237667' || user.phone === '01000000000' || user.is_admin;
+  const isAdmin = user.phone === '01018237667' || user.phone === '01000000000' || user.email === 'amaarfekry5@gmail.com' || user.is_admin;
 
   return {
     success: true,
@@ -226,15 +200,18 @@ export async function loginWithEmailPassword({ identifier, password }) {
 export async function requestPasswordResetOtp(email) {
   const cleanEmail = email.trim().toLowerCase();
 
-  const { data: user, error } = await supabase
+  const { data: users, error } = await supabase
     .from('users')
     .select('*')
     .eq('email', cleanEmail)
-    .maybeSingle();
+    .order('created_at', { ascending: false })
+    .limit(1);
 
-  if (error || !user) {
+  if (error || !users || users.length === 0) {
     throw new Error('البريد الإلكتروني غير مسجل في المنصة');
   }
+
+  const user = users[0];
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
@@ -246,7 +223,7 @@ export async function requestPasswordResetOtp(email) {
       otp_expires_at: otpExpiresAt,
       updated_at: new Date().toISOString()
     })
-    .eq('email', cleanEmail);
+    .eq('id', user.id);
 
   if (updateErr) throw new Error('فشل في إرسال رمز الاستعادة، يرجى المحاولة لاحقاً');
 
