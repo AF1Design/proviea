@@ -18,6 +18,7 @@ import {
   Eye, 
   X,
   Phone,
+  Mail,
   Send,
   Sparkles,
   Lock,
