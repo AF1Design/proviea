@@ -102,11 +102,7 @@ function MainApp() {
   // Handle Splash Screen Completion
   const handleSplashFinish = () => {
     setHasSeenSplash(true);
-    if (!user) {
-      setScreen('auth');
-    } else {
-      setScreen('home');
-    }
+    setScreen('home');
   };
 
   // Handle Auth Completion (after OTP)
@@ -118,23 +114,15 @@ function MainApp() {
     }
   };
 
-  // Start School List Form
+  // Start School List Form - Free for all customers without login gate
   const handleStartSchoolList = () => {
-    if (!user) {
-      setScreen('auth');
-    } else {
-      setScreen('form');
-    }
+    setScreen('form');
   };
 
-  // Proceed to Review Screen
+  // Proceed to Review Screen - Free for all customers without login gate
   const handleProceedToReview = (data) => {
     setFormData(data);
-    if (!user) {
-      setScreen('auth');
-    } else {
-      setScreen('review');
-    }
+    setScreen('review');
   };
 
   // Order Submitted Successfully

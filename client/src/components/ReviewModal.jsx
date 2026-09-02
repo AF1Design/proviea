@@ -14,7 +14,9 @@ import {
   RefreshCw, 
   Edit3, 
   ShieldCheck,
-  Sparkles
+  Sparkles,
+  User,
+  Phone
 } from 'lucide-react';
 
 import { submitSchoolListOrder } from '../supabase';
@@ -37,10 +39,12 @@ export default function ReviewModal({ formData = {}, onBackToEdit, onSuccess }) 
 
       const payload = {
         userId: user?.id || '',
-        name: user?.name || 'عميل Proviea',
-        phone: user?.phone || '',
-        email: user?.email || '',
+        name: safeData.customerName || user?.name || 'عميل Proviea',
+        phone: safeData.customerPhone || user?.phone || '',
+        email: safeData.customerEmail || user?.email || '',
         companyCode: safeData.companyCode || 'PROVIEA15',
+        companyName: safeData.companyName || 'عرض خاص Proviea',
+        discountPct: safeData.discountPct || 15,
         childGender: safeData.childGender || 'غير محدد',
         schoolStage: safeData.schoolStage || 'غير محدد',
         budgetTier: safeData.budgetTier || 'medium',
@@ -143,6 +147,21 @@ export default function ReviewModal({ formData = {}, onBackToEdit, onSuccess }) 
             <span className="font-semibold text-navy/60">الميزانية وتفضيل المنتجات:</span>
             <span className="font-bold text-navy">
               {safeData.budgetTierLabel || '⚖️ متوسطة'}
+            </span>
+          </div>
+
+          {/* Customer Name & Contact */}
+          <div className="py-3 flex items-center justify-between">
+            <span className="font-semibold text-navy/60">ولي الأمر:</span>
+            <span className="font-bold text-navy">
+              {safeData.customerName || user?.name || 'عميل Proviea'}
+            </span>
+          </div>
+
+          <div className="py-3 flex items-center justify-between">
+            <span className="font-semibold text-navy/60">رقم التواصل / واتساب:</span>
+            <span className="font-bold text-navy" dir="ltr">
+              {safeData.customerPhone || user?.phone || 'غير مسجل'}
             </span>
           </div>
 

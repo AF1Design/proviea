@@ -18,7 +18,10 @@ import {
   HelpCircle,
   Plus,
   Trash2,
-  Percent
+  Percent,
+  User,
+  Phone,
+  Mail
 } from 'lucide-react';
 
 import { validateCorporateCode } from '../supabase';
@@ -52,7 +55,12 @@ export default function SchoolListForm({ onProceedToReview, onBack, initialData 
   // 6. Budget Tier
   const [budgetTier, setBudgetTier] = useState(initialData?.budgetTier || 'medium');
 
-  // 7. Delivery & Address
+  // 7. Customer Contact Info (Direct order without mandatory login)
+  const [customerName, setCustomerName] = useState(initialData?.customerName || user?.name || '');
+  const [customerPhone, setCustomerPhone] = useState(initialData?.customerPhone || user?.phone || '');
+  const [customerEmail, setCustomerEmail] = useState(initialData?.customerEmail || user?.email || '');
+
+  // 8. Delivery & Address
   const [deliveryType, setDeliveryType] = useState(initialData?.deliveryType || 'توصيل للمنزل');
   const [address, setAddress] = useState(initialData?.address || '');
   const [city, setCity] = useState(initialData?.city || 'القاهرة / الجيزة');
@@ -166,6 +174,16 @@ export default function SchoolListForm({ onProceedToReview, onBack, initialData 
       return;
     }
 
+    if (!customerName.trim()) {
+      setFormError('يرجى كتابة اسم ولي الأمر للتواصل');
+      return;
+    }
+
+    if (!customerPhone.trim() || customerPhone.trim().replace(/\s+/g, '').length < 10) {
+      setFormError('يرجى كتابة رقم هاتف / واتساب صحيح للتواصل وتأكيد الطلب (11 رقم)');
+      return;
+    }
+
     if (!address.trim()) {
       setFormError('يرجى كتابة عنوان التوصيل بالتفصيل');
       return;
@@ -182,6 +200,9 @@ export default function SchoolListForm({ onProceedToReview, onBack, initialData 
       images,
       files,
       extraNotes,
+      customerName: customerName.trim(),
+      customerPhone: customerPhone.trim().replace(/\s+/g, ''),
+      customerEmail: customerEmail.trim(),
       companyCode,
       companyName,
       discountPct,
@@ -637,7 +658,75 @@ export default function SchoolListForm({ onProceedToReview, onBack, initialData 
         </div>
       </div>
 
-      {/* ================= 7. DELIVERY & ADDRESS ================= */}
+      {/* ================= 7. CUSTOMER CONTACT INFO ================= */}
+      <div className="bg-white rounded-3xl p-5 border border-navy/10 shadow-card space-y-4">
+        <h2 className="text-sm font-bold text-navy flex items-center gap-2">
+          <User className="w-4 h-4 text-yellow-dark" />
+          <span>بيانات ولي الأمر للتواصل والتأكيد</span>
+        </h2>
+        <p className="text-[11px] text-navy/60">
+          سيتم التواصل معك عبر الواتساب لتأكيد تفاصيل وأسعار القائمة قبل التجهيز
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Customer Name */}
+          <div>
+            <label className="block text-xs font-bold text-navy mb-1">
+              الاسم الكامل <span className="text-red-500">*</span>:
+            </label>
+            <div className="relative">
+              <User className="w-4 h-4 text-navy/40 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                required
+                placeholder="أحمد محمد"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                className="w-full bg-offwhite border border-navy/15 rounded-xl pr-9 pl-3 py-2.5 text-xs text-navy placeholder:text-navy/35 focus:outline-none focus:border-navy focus:bg-white transition-all font-semibold"
+              />
+            </div>
+          </div>
+
+          {/* Customer Phone */}
+          <div>
+            <label className="block text-xs font-bold text-navy mb-1">
+              رقم الموبايل / واتساب <span className="text-red-500">*</span>:
+            </label>
+            <div className="relative">
+              <Phone className="w-4 h-4 text-navy/40 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="tel"
+                required
+                dir="ltr"
+                placeholder="01018237667"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+                className="w-full bg-offwhite border border-navy/15 rounded-xl pr-9 pl-3 py-2.5 text-xs text-navy placeholder:text-navy/35 focus:outline-none focus:border-navy focus:bg-white transition-all font-semibold text-right"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Customer Email (Optional) */}
+        <div>
+          <label className="block text-xs font-bold text-navy mb-1">
+            البريد الإلكتروني <span className="text-navy/40 font-normal">(اختياري لمتابعة الطلب)</span>:
+          </label>
+          <div className="relative">
+            <Mail className="w-4 h-4 text-navy/40 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="email"
+              dir="ltr"
+              placeholder="name@example.com"
+              value={customerEmail}
+              onChange={(e) => setCustomerEmail(e.target.value)}
+              className="w-full bg-offwhite border border-navy/15 rounded-xl pr-9 pl-3 py-2.5 text-xs text-navy placeholder:text-navy/35 focus:outline-none focus:border-navy focus:bg-white transition-all text-right"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ================= 8. DELIVERY & ADDRESS ================= */}
       <div className="bg-white rounded-3xl p-5 border border-navy/10 shadow-card space-y-4">
         <h2 className="text-sm font-bold text-navy flex items-center gap-2">
           <MapPin className="w-4 h-4 text-yellow-dark" />
